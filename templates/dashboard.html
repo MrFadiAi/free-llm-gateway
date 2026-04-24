@@ -4,160 +4,176 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Free LLM Gateway</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; }
-  a { color: #58a6ff; text-decoration: none; }
-  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-
-  header { border-bottom: 1px solid #21262d; padding: 16px 0; margin-bottom: 24px; }
-  header h1 { font-size: 24px; font-weight: 600; color: #f0f6fc; }
-  header p { color: #8b949e; margin-top: 4px; font-size: 14px; }
-
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px; }
-  .stat-card { background: #161b22; border: 1px solid #21262d; border-radius: 8px; padding: 16px; }
-  .stat-card .label { font-size: 12px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
-  .stat-card .value { font-size: 28px; font-weight: 700; color: #f0f6fc; margin-top: 4px; }
-
-  section { margin-bottom: 32px; }
-  section h2 { font-size: 18px; font-weight: 600; color: #f0f6fc; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-  section h2 .badge { font-size: 12px; background: #1f6feb; color: #fff; padding: 2px 8px; border-radius: 12px; }
-
-  table { width: 100%; border-collapse: collapse; background: #161b22; border: 1px solid #21262d; border-radius: 8px; overflow: hidden; }
-  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #21262d; font-size: 13px; }
-  th { background: #1c2129; color: #8b949e; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
-  tr:last-child td { border-bottom: none; }
-  tr:hover { background: #1c2129; }
-
-  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-  .tag-green { background: #0d2818; color: #3fb950; }
-  .tag-red { background: #3d0e0e; color: #f85149; }
-  .tag-yellow { background: #3d2e00; color: #d29922; }
-  .tag-blue { background: #0d1d35; color: #58a6ff; }
-  .tag-gray { background: #21262d; color: #8b949e; }
-
-  .providers-cell { display: flex; flex-wrap: wrap; gap: 4px; }
-
-  .log-ok { color: #3fb950; }
-  .log-fail { color: #f85149; }
-
-  .refresh-btn { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-left: auto; }
-  .refresh-btn:hover { background: #30363d; }
-
-  .empty { text-align: center; padding: 32px; color: #8b949e; }
-</style>
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<div class="container">
-  <header>
-    <h1>Free LLM Gateway</h1>
-    <p>Unified API endpoint for 14 free LLM providers</p>
-  </header>
 
-  <div class="stats">
-    <div class="stat-card">
-      <div class="label">Models</div>
-      <div class="value">{{ total_models }}</div>
+<!-- Mobile hamburger -->
+<button id="hamburger" class="hamburger">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+</button>
+<div id="overlay" class="overlay"></div>
+
+<!-- Sidebar -->
+<nav id="sidebar" class="sidebar">
+  <div class="sidebar-header">
+    <h1>LLM Gateway</h1>
+    <p>Unified free API proxy</p>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-item active" data-tab="models">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      Models
     </div>
-    <div class="stat-card">
-      <div class="label">Providers Active</div>
-      <div class="value">{{ total_providers }}</div>
+    <div class="nav-item" data-tab="providers">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/></svg>
+      Providers
     </div>
-    <div class="stat-card">
-      <div class="label">Endpoint</div>
-      <div class="value" style="font-size:16px;margin-top:8px;">/v1/chat/completions</div>
+    <div class="nav-item" data-tab="usage">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      Usage
+    </div>
+    <div class="nav-item" data-tab="cache">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+      Cache &amp; Queue
+    </div>
+    <div class="nav-item" data-tab="keys">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.78 7.78 5.5 5.5 0 017.78-7.78zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+      Keys
+    </div>
+    <div class="nav-item" data-tab="logs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Logs
     </div>
   </div>
+  <div class="sidebar-footer">
+    <span id="live-dot" class="live-dot"></span> Live &middot; Auto-refresh 10s
+  </div>
+</nav>
 
-  <section>
-    <h2>Provider Keys <span class="badge">{{ total_providers }}/14</span></h2>
-    <table>
-      <tr><th>Provider</th><th>API Key</th></tr>
-      {% for name, has_key in providers.items() %}
-      <tr>
-        <td>{{ name }}</td>
-        <td>{% if has_key %}<span class="tag tag-green">configured</span>{% else %}<span class="tag tag-gray">not set</span>{% endif %}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </section>
+<!-- Main Content -->
+<div class="main">
+  <div class="content">
 
-  <section>
-    <h2>Models <span class="badge">{{ models|length }}</span></h2>
-    <table>
-      <tr><th>Model</th><th>Active Provider</th><th>Fallback Chain</th></tr>
-      {% for m in models %}
-      <tr>
-        <td><code>{{ m.name }}</code></td>
-        <td>
-          {% if m.active_provider %}
-            <span class="tag tag-green">{{ m.active_provider.provider }}</span>
-          {% else %}
-            <span class="tag tag-red">unavailable</span>
-          {% endif %}
-        </td>
-        <td>
-          <div class="providers-cell">
-          {% for p in m.providers %}
-            {% if p.available %}
-              <span class="tag tag-blue" title="{{ p.model }}">{{ p.provider }}</span>
-            {% elif p.rate_limited %}
-              <span class="tag tag-yellow" title="{{ p.model }}">{{ p.provider }} (limited)</span>
-            {% elif not p.has_key %}
-              <span class="tag tag-gray" title="{{ p.model }}">{{ p.provider }} (no key)</span>
-            {% else %}
-              <span class="tag tag-gray" title="{{ p.model }}">{{ p.provider }}</span>
-            {% endif %}
-          {% endfor %}
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </table>
-  </section>
+    <!-- Stats bar -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="label">Models</div>
+        <div class="value" id="stat-models">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Active Providers</div>
+        <div class="value" id="stat-providers">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Today's Requests</div>
+        <div class="value" id="stat-requests">0</div>
+        <div class="sub" id="stat-tokens"></div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Est. Savings Today</div>
+        <div class="value savings" id="stat-savings">$0.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Cache Hit Rate</div>
+        <div class="value" id="stat-cache-rate">0%</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Endpoint</div>
+        <div class="value" style="font-size:13px;margin-top:8px">/v1/chat/completions</div>
+      </div>
+    </div>
 
-  {% if rate_limits %}
-  <section>
-    <h2>Rate Limits</h2>
-    <table>
-      <tr><th>Provider</th><th>RPM Used</th><th>RPM Limit</th><th>RPD Used</th><th>RPD Limit</th><th>Status</th></tr>
-      {% for name, rl in rate_limits.items() %}
-      <tr>
-        <td>{{ name }}</td>
-        <td>{{ rl.rpm_used }}</td>
-        <td>{% if rl.rpm_limit > 0 %}{{ rl.rpm_limit }}{% else %}unlimited{% endif %}</td>
-        <td>{{ rl.rpd_used }}</td>
-        <td>{% if rl.rpd_limit > 0 %}{{ rl.rpd_limit }}{% else %}unlimited{% endif %}</td>
-        <td>{% if rl.limited %}<span class="tag tag-red">limited</span>{% else %}<span class="tag tag-green">ok</span>{% endif %}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </section>
-  {% endif %}
+    <!-- Models Tab -->
+    <div id="tab-models" class="tab-panel active">
+      <div class="page-header">
+        <h2>Models</h2>
+      </div>
+      <table>
+        <thead><tr><th>Model</th><th>Active Provider</th><th>Fallback Chain</th><th>Providers</th></tr></thead>
+        <tbody id="models-tbody"></tbody>
+      </table>
+    </div>
 
-  <section>
-    <h2>
-      Request Logs
-      <button class="refresh-btn" onclick="location.reload()">Refresh</button>
-    </h2>
-    {% if logs %}
-    <table>
-      <tr><th>Time</th><th>Model</th><th>Provider</th><th>Provider Model</th><th>Latency</th><th>Status</th></tr>
-      {% for log in logs %}
-      <tr>
-        <td>{{ log.time_str }}</td>
-        <td><code>{{ log.model }}</code></td>
-        <td>{{ log.provider }}</td>
-        <td><code>{{ log.provider_model }}</code></td>
-        <td>{{ log.latency_ms }}ms</td>
-        <td>{% if log.success %}<span class="log-ok">OK</span>{% else %}<span class="log-fail" title="{{ log.error }}">FAIL</span>{% endif %}</td>
-      </tr>
-      {% endfor %}
-    </table>
-    {% else %}
-    <div class="empty">No requests yet. Send a chat completion request to see logs here.</div>
-    {% endif %}
-  </section>
+    <!-- Providers Tab -->
+    <div id="tab-providers" class="tab-panel">
+      <div class="page-header">
+        <h2>Providers</h2>
+      </div>
+      <div id="provider-grid" class="provider-grid"></div>
+    </div>
+
+    <!-- Usage Tab -->
+    <div id="tab-usage" class="tab-panel">
+      <div class="page-header">
+        <h2>Usage &amp; Savings</h2>
+      </div>
+      <div class="mini-stats" id="usage-summary"></div>
+      <div class="chart-container" id="usage-chart"></div>
+      <div id="usage-models-table"></div>
+    </div>
+
+    <!-- Cache & Queue Tab -->
+    <div id="tab-cache" class="tab-panel">
+      <div class="page-header">
+        <h2>Cache &amp; Queue</h2>
+      </div>
+      <div id="cache-section"></div>
+      <div id="queue-section"></div>
+    </div>
+
+    <!-- Keys Tab -->
+    <div id="tab-keys" class="tab-panel">
+      <div class="page-header">
+        <h2>API Key Management</h2>
+      </div>
+      <form id="key-form" class="key-form">
+        <div class="form-group">
+          <label for="key-provider">Provider</label>
+          <select id="key-provider">
+            <option value="openrouter">openrouter</option>
+            <option value="github">github</option>
+            <option value="groq">groq</option>
+            <option value="cerebras">cerebras</option>
+            <option value="cloudflare">cloudflare</option>
+            <option value="huggingface">huggingface</option>
+            <option value="nvidia">nvidia</option>
+            <option value="siliconflow">siliconflow</option>
+            <option value="cohere">cohere</option>
+            <option value="google_gemini">google_gemini</option>
+            <option value="mistral">mistral</option>
+            <option value="kilo">kilo</option>
+            <option value="llm7">llm7</option>
+            <option value="ollama">ollama</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;min-width:240px">
+          <label for="key-value">API Key</label>
+          <input type="password" id="key-value" placeholder="sk-..." autocomplete="off">
+        </div>
+        <button type="submit" class="btn btn-primary">Add Key</button>
+      </form>
+      <div id="keys-list"></div>
+    </div>
+
+    <!-- Logs Tab -->
+    <div id="tab-logs" class="tab-panel">
+      <div class="page-header">
+        <h2>Request Logs</h2>
+      </div>
+      <div class="log-container">
+        <div class="log-table-wrap">
+          <table>
+            <thead><tr><th>Time</th><th>Model</th><th>Provider</th><th>Provider Model</th><th>Latency</th><th>Tokens</th><th>Status</th></tr></thead>
+            <tbody id="logs-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
 </div>
+
+<script src="/static/app.js"></script>
 </body>
 </html>

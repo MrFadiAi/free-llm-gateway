@@ -32,6 +32,31 @@ python main.py
 
 ## Configuration
 
+### Docker
+
+Run with Docker Compose:
+
+```bash
+# 1. Configure API keys
+cp .env.example .env
+# Edit .env — add at least one provider API key
+
+# 2. Build and start
+docker compose up -d
+
+# 3. Check status
+docker compose ps
+curl http://localhost:8080/api/status
+
+# View logs
+docker compose logs -f
+
+# Stop
+docker compose down
+```
+
+The `data/` directory is mounted as a volume for persistent usage data. The `.env` file is mounted read-only.
+
 ### Environment Variables (`.env`)
 
 | Variable | Description |
@@ -52,8 +77,21 @@ python main.py
 | `LLM7_KEY` | LLM7 API key (no key needed for basic access) |
 | `HOST` | Server host (default: `0.0.0.0`) |
 | `PORT` | Server port (default: `8080`) |
+| `RETRY_MAX_ATTEMPTS` | Max retries per provider on 5xx errors (default: `2`) |
+| `RETRY_BACKOFF_BASE` | Base seconds for exponential backoff (default: `1.0`, sequence: 1s, 2s, 4s...) |
 
 You only need **at least one** provider key to get started. Add more for better availability.
+
+**Multiple keys per provider** — load balance across keys:
+```bash
+# Comma-separated
+OPENROUTER_KEY=key1,key2,key3
+
+# Or indexed
+OPENROUTER_KEY_1=key1
+OPENROUTER_KEY_2=key2
+```
+Keys are rotated round-robin. On 429/auth errors, the gateway automatically switches to the next key.
 
 ### Model Configuration (`models.yaml`)
 
@@ -183,6 +221,29 @@ cp .env.example .env
 python main.py
 ```
 
+### تشغيل مع Docker
+
+```bash
+# 1. إعداد مفاتيح API
+cp .env.example .env
+# عدّل .env — أضف مفتاح مزود واحد على الأقل
+
+# 2. بناء وتشغيل
+docker compose up -d
+
+# 3. التحقق من الحالة
+docker compose ps
+curl http://localhost:8080/api/status
+
+# عرض السجلات
+docker compose logs -f
+
+# إيقاف
+docker compose down
+```
+
+مجلد `data/` مُثبَّت كحجم للبيانات المستمرة. ملف `.env` مُثبَّت للقراءة فقط.
+
 ## الإعدادات
 
 ### متغيرات البيئة (`.env`)
@@ -201,6 +262,17 @@ python main.py
 | `SILICONFLOW_KEY` | [احصل على مفتاح مجاني ↗](https://siliconflow.cn/) — Qwen و DeepSeek و GLM |
 
 تحتاج **مفتاح مزود واحد على الأقل** للبدء. أضف المزيد لزيادة التوفر.
+
+**مفاتيح متعددة لكل مزود** — توزيع الحمل عبر المفاتيح:
+```bash
+# مفصولة بفواصل
+OPENROUTER_KEY=key1,key2,key3
+
+# أو مفهرسة
+OPENROUTER_KEY_1=key1
+OPENROUTER_KEY_2=key2
+```
+يتم تدوير المفاتيح بالتناوب. عند خطأ 429/مصادقة، تنتقل البوابة تلقائياً إلى المفتاح التالي.
 
 ### إعداد النماذج (`models.yaml`)
 

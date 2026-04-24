@@ -5,112 +5,217 @@
 models:
   # ── Meta Llama ────────────────────────────────────────────────────────────
   llama-3.3-70b:
-    - provider: openrouter
-      model: meta-llama/llama-3.3-70b-instruct:free
-    - provider: nvidia
-      model: meta/llama-3.1-405b-instruct
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: meta-llama/llama-3.3-70b-instruct:free
+      - provider: nvidia
+        model: meta/llama-3.1-405b-instruct
 
   llama-3.1-8b:
-    - provider: nvidia
-      model: meta/llama-3.1-8b-instruct
-    - provider: openrouter
-      model: meta-llama/llama-3.2-3b-instruct:free
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: nvidia
+        model: meta/llama-3.1-8b-instruct
+      - provider: openrouter
+        model: meta-llama/llama-3.2-3b-instruct:free
 
   # ── Google Gemma ──────────────────────────────────────────────────────────
   gemma-4-31b:
-    - provider: openrouter
-      model: google/gemma-4-31b-it:free
-    - provider: nvidia
-      model: google/gemma-4-31b
+    capabilities:
+      supports_tools: true
+      supports_vision: true
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: google/gemma-4-31b-it:free
+      - provider: nvidia
+        model: google/gemma-4-31b
 
   gemma-4-26b:
-    - provider: openrouter
-      model: google/gemma-4-26b-a4b-it:free
-    - provider: nvidia
-      model: google/gemma-4-31b
+    capabilities:
+      supports_tools: true
+      supports_vision: true
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: google/gemma-4-26b-a4b-it:free
+      - provider: nvidia
+        model: google/gemma-4-31b
 
   gemma-3-27b:
-    - provider: openrouter
-      model: google/gemma-3-27b-it:free
+    capabilities:
+      supports_tools: false
+      supports_vision: true
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: google/gemma-3-27b-it:free
 
   gemma-3-12b:
-    - provider: openrouter
-      model: google/gemma-3-12b-it:free
+    capabilities:
+      supports_tools: false
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: google/gemma-3-12b-it:free
 
   gemma-3-4b:
-    - provider: openrouter
-      model: google/gemma-3-4b-it:free
+    capabilities:
+      supports_tools: false
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: google/gemma-3-4b-it:free
 
   # ── NVIDIA Nemotron ───────────────────────────────────────────────────────
   nemotron-super-120b:
-    - provider: openrouter
-      model: nvidia/nemotron-3-super-120b-a12b:free
-    - provider: nvidia
-      model: nvidia/nemotron-3-super-120b-a12b
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: nvidia/nemotron-3-super-120b-a12b:free
+      - provider: nvidia
+        model: nvidia/nemotron-3-super-120b-a12b
 
   nemotron-nano-30b:
-    - provider: openrouter
-      model: nvidia/nemotron-3-nano-30b-a3b:free
-    - provider: nvidia
-      model: nvidia/nemotron-3-nano-30b-a3b
+    capabilities:
+      supports_tools: false
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: nvidia/nemotron-3-nano-30b-a3b:free
+      - provider: nvidia
+        model: nvidia/nemotron-3-nano-30b-a3b
 
   # ── OpenAI GPT-OSS ───────────────────────────────────────────────────────
   gpt-oss-120b:
-    - provider: openrouter
-      model: openai/gpt-oss-120b:free
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: openai/gpt-oss-120b:free
 
   gpt-oss-20b:
-    - provider: openrouter
-      model: openai/gpt-oss-20b:free
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: openai/gpt-oss-20b:free
 
   # ── Qwen ──────────────────────────────────────────────────────────────────
   qwen3-coder:
-    - provider: openrouter
-      model: qwen/qwen3-coder:free
-    - provider: nvidia
-      model: qwen/qwen2.5-72b-instruct
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: qwen/qwen3-coder:free
+      - provider: nvidia
+        model: qwen/qwen2.5-72b-instruct
 
   qwen3-next-80b:
-    - provider: openrouter
-      model: qwen/qwen3-next-80b-a3b-instruct:free
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: qwen/qwen3-next-80b-a3b-instruct:free
 
   # ── MiniMax ───────────────────────────────────────────────────────────────
   minimax-m2.5:
-    - provider: openrouter
-      model: minimax/minimax-m2.5:free
-    - provider: nvidia
-      model: minimax/minimax-m2.7
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: minimax/minimax-m2.5:free
+      - provider: nvidia
+        model: minimax/minimax-m2.7
 
   # ── DeepSeek (paid on OpenRouter, try NVIDIA free) ────────────────────────
   deepseek-r1:
-    - provider: nvidia
-      model: deepseek-ai/deepseek-r1
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: nvidia
+        model: deepseek-ai/deepseek-r1
 
   # ── GLM ───────────────────────────────────────────────────────────────────
   glm-4.5-air:
-    - provider: openrouter
-      model: z-ai/glm-4.5-air:free
+    capabilities:
+      supports_tools: false
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: z-ai/glm-4.5-air:free
 
   # ── Hermes / Nous ─────────────────────────────────────────────────────────
   hermes-3-405b:
-    - provider: openrouter
-      model: nousresearch/hermes-3-llama-3.1-405b:free
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: nousresearch/hermes-3-llama-3.1-405b:free
 
   # ── Mistral (via NVIDIA) ──────────────────────────────────────────────────
   mistral-large:
-    - provider: nvidia
-      model: mistralai/mistral-large-2-instruct
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: nvidia
+        model: mistralai/mistral-large-2-instruct
 
-  # ── Specialty / embeddings ────────────────────────────────────────────────
+  # ── Specialty ─────────────────────────────────────────────────────────────
   ling-2.6-flash:
-    - provider: openrouter
-      model: inclusionai/ling-2.6-flash:free
+    capabilities:
+      supports_tools: false
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: inclusionai/ling-2.6-flash:free
 
   dolphin-mistral-24b:
-    - provider: openrouter
-      model: cognitivecomputations/dolphin-mistral-24b-venice-edition:free
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+      - provider: openrouter
+        model: cognitivecomputations/dolphin-mistral-24b-venice-edition:free
 
   # ── Embedding models ──────────────────────────────────────────────────────
   text-embedding-3-small:
-    - provider: nvidia
-      model: nvidia/llama-3.1-nemotron-ultra-253b-v1
+    capabilities:
+      supports_tools: false
+      supports_vision: false
+      supports_streaming: false
+    fallbacks:
+      - provider: nvidia
+        model: nvidia/llama-3.1-nemotron-ultra-253b-v1

@@ -19,15 +19,41 @@ REQUEST_TIMEOUT = 120.0  # seconds
 class ProviderError(Exception):
     """Raised when a provider request fails."""
 
-    def __init__(self, provider: str, status: int, message: str):
+    def __init__(
+        self,
+        provider: str,
+        status: int,
+        message: str,
+        retry_after: float | None = None,
+    ):
         self.provider = provider
         self.status = status
         self.message = message
+        self.retry_after = retry_after
         super().__init__(f"[{provider}] HTTP {status}: {message}")
 
 
 def _is_rate_limited(status: int) -> bool:
     return status == 429
+
+
+def _get_retry_after(resp: httpx.Response) -> float | None:
+    """Extract Retry-After header value in seconds."""
+    val = resp.headers.get("retry-after")
+    if not val:
+        return None
+    try:
+        return float(val)
+    except ValueError:
+        return None
+
+
+def has_tool_calling(payload: dict[str, Any]) -> bool:
+    """Check if the request contains tool/function calling fields."""
+    return bool(
+        payload.get("tools") or payload.get("tool_choice")
+        or payload.get("functions") or payload.get("function_call")
+    )
 
 
 def _build_openai_headers(provider: ProviderConfig) -> dict[str, str]:
@@ -63,9 +89,12 @@ async def _request_openai_compatible(
     if stream:
         return _stream_response(client, url, headers, body, provider.name)
 
-    resp = await client.post(url, headers=headers, json=body, timeout=REQUEST_TIMEOUT)
+    try:
+        resp = await client.post(url, headers=headers, json=body, timeout=REQUEST_TIMEOUT)
+    except httpx.TimeoutException:
+        raise ProviderError(provider.name, 0, "Request timed out")
     if _is_rate_limited(resp.status_code):
-        raise ProviderError(provider.name, 429, "Rate limited")
+        raise ProviderError(provider.name, 429, "Rate limited", retry_after=_get_retry_after(resp))
     if resp.status_code >= 400:
         raise ProviderError(provider.name, resp.status_code, resp.text[:500])
 
@@ -79,15 +108,18 @@ async def _stream_response(
     body: dict[str, Any],
     provider_name: str,
 ) -> AsyncIterator[bytes]:
-    async with client.stream("POST", url, headers=headers, json=body, timeout=REQUEST_TIMEOUT) as resp:
-        if _is_rate_limited(resp.status_code):
-            raise ProviderError(provider_name, 429, "Rate limited")
-        if resp.status_code >= 400:
-            body_text = await resp.aread()
-            raise ProviderError(provider_name, resp.status_code, body_text.decode()[:500])
+    try:
+        async with client.stream("POST", url, headers=headers, json=body, timeout=REQUEST_TIMEOUT) as resp:
+            if _is_rate_limited(resp.status_code):
+                raise ProviderError(provider_name, 429, "Rate limited", retry_after=_get_retry_after(resp))
+            if resp.status_code >= 400:
+                body_text = await resp.aread()
+                raise ProviderError(provider_name, resp.status_code, body_text.decode()[:500])
 
-        async for chunk in resp.aiter_bytes():
-            yield chunk
+            async for chunk in resp.aiter_bytes():
+                yield chunk
+    except httpx.TimeoutException:
+        raise ProviderError(provider_name, 0, "Request timed out")
 
 
 async def _request_cloudflare(
@@ -107,9 +139,12 @@ async def _request_cloudflare(
     if stream:
         return _stream_response(client, url, headers, body, provider.name)
 
-    resp = await client.post(url, headers=headers, json=body, timeout=REQUEST_TIMEOUT)
+    try:
+        resp = await client.post(url, headers=headers, json=body, timeout=REQUEST_TIMEOUT)
+    except httpx.TimeoutException:
+        raise ProviderError(provider.name, 0, "Request timed out")
     if _is_rate_limited(resp.status_code):
-        raise ProviderError(provider.name, 429, "Rate limited")
+        raise ProviderError(provider.name, 429, "Rate limited", retry_after=_get_retry_after(resp))
     if resp.status_code >= 400:
         raise ProviderError(provider.name, resp.status_code, resp.text[:500])
     return resp.json()
@@ -134,9 +169,12 @@ async def _request_huggingface(
     hf_body["max_tokens"] = payload.get("max_tokens", 1024)
     hf_body["stream"] = payload.get("stream", False)
 
-    resp = await client.post(url, headers=headers, json=hf_body, timeout=REQUEST_TIMEOUT)
+    try:
+        resp = await client.post(url, headers=headers, json=hf_body, timeout=REQUEST_TIMEOUT)
+    except httpx.TimeoutException:
+        raise ProviderError(provider.name, 0, "Request timed out")
     if _is_rate_limited(resp.status_code):
-        raise ProviderError(provider.name, 429, "Rate limited")
+        raise ProviderError(provider.name, 429, "Rate limited", retry_after=_get_retry_after(resp))
     if resp.status_code >= 400:
         raise ProviderError(provider.name, resp.status_code, resp.text[:500])
     return resp.json()
@@ -166,9 +204,12 @@ async def _request_cohere(
                 if m["role"] in ("user", "assistant")
             ]
 
-    resp = await client.post(url, headers=headers, json=cohere_body, timeout=REQUEST_TIMEOUT)
+    try:
+        resp = await client.post(url, headers=headers, json=cohere_body, timeout=REQUEST_TIMEOUT)
+    except httpx.TimeoutException:
+        raise ProviderError(provider.name, 0, "Request timed out")
     if _is_rate_limited(resp.status_code):
-        raise ProviderError(provider.name, 429, "Rate limited")
+        raise ProviderError(provider.name, 429, "Rate limited", retry_after=_get_retry_after(resp))
     if resp.status_code >= 400:
         raise ProviderError(provider.name, resp.status_code, resp.text[:500])
     return resp.json()
@@ -188,9 +229,12 @@ async def _request_gemini(
         contents.append({"role": role, "parts": [{"text": m["content"]}]})
 
     gemini_body: dict[str, Any] = {"contents": contents}
-    resp = await client.post(url, json=gemini_body, timeout=REQUEST_TIMEOUT)
+    try:
+        resp = await client.post(url, json=gemini_body, timeout=REQUEST_TIMEOUT)
+    except httpx.TimeoutException:
+        raise ProviderError(provider.name, 0, "Request timed out")
     if _is_rate_limited(resp.status_code):
-        raise ProviderError(provider.name, 429, "Rate limited")
+        raise ProviderError(provider.name, 429, "Rate limited", retry_after=_get_retry_after(resp))
     if resp.status_code >= 400:
         raise ProviderError(provider.name, resp.status_code, resp.text[:500])
     return resp.json()
@@ -213,9 +257,12 @@ async def _request_kilo(
     if stream:
         return _stream_response(client, url, headers, body, provider.name)
 
-    resp = await client.post(url, headers=headers, json=body, timeout=REQUEST_TIMEOUT)
+    try:
+        resp = await client.post(url, headers=headers, json=body, timeout=REQUEST_TIMEOUT)
+    except httpx.TimeoutException:
+        raise ProviderError(provider.name, 0, "Request timed out")
     if _is_rate_limited(resp.status_code):
-        raise ProviderError(provider.name, 429, "Rate limited")
+        raise ProviderError(provider.name, 429, "Rate limited", retry_after=_get_retry_after(resp))
     if resp.status_code >= 400:
         raise ProviderError(provider.name, resp.status_code, resp.text[:500])
     return resp.json()
@@ -229,6 +276,13 @@ async def send_to_provider(
 ) -> dict[str, Any] | AsyncIterator[bytes]:
     """Route a request to the correct provider adapter."""
     name = provider.name
+
+    # Special providers don't support OpenAI tool calling format
+    if name in SPECIAL_PROVIDERS and has_tool_calling(payload):
+        raise ProviderError(
+            name, 400,
+            f"Provider {name} does not support tool calling for model {model}",
+        )
 
     if name in OPENAI_COMPATIBLE:
         return await _request_openai_compatible(client, provider, model, payload)

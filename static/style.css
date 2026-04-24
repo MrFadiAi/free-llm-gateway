@@ -1,0 +1,135 @@
+/* ── Reset & Base ─────────────────────────────────────────────── */
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0d1117;color:#c9d1d9;min-height:100vh;display:flex}
+a{color:#58a6ff;text-decoration:none}
+code{font-family:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;font-size:12px;background:#1c2129;padding:2px 6px;border-radius:4px}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+.sidebar{width:220px;min-height:100vh;background:#0a0e14;border-right:1px solid #21262d;display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:10;transition:transform .2s}
+.sidebar-header{padding:20px;border-bottom:1px solid #21262d}
+.sidebar-header h1{font-size:18px;font-weight:700;color:#f0f6fc;letter-spacing:-0.3px}
+.sidebar-header p{font-size:11px;color:#8b949e;margin-top:2px}
+.sidebar-nav{padding:12px 0;flex:1}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;color:#8b949e;font-size:14px;cursor:pointer;border-left:3px solid transparent;transition:all .15s}
+.nav-item:hover{color:#c9d1d9;background:#161b22}
+.nav-item.active{color:#f0f6fc;background:#161b22;border-left-color:#58a6ff}
+.nav-item svg{width:18px;height:18px;flex-shrink:0}
+.sidebar-footer{padding:16px 20px;border-top:1px solid #21262d;font-size:11px;color:#484f58}
+
+/* ── Main Content ────────────────────────────────────────────── */
+.main{margin-left:220px;flex:1;min-height:100vh}
+.content{max-width:1100px;margin:0 auto;padding:24px}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* ── Header bar ──────────────────────────────────────────────── */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.page-header h2{font-size:20px;font-weight:600;color:#f0f6fc}
+.header-actions{display:flex;gap:8px;align-items:center}
+.live-dot{width:8px;height:8px;background:#3fb950;border-radius:50%;display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── Stat Cards ──────────────────────────────────────────────── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.stat-card{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:16px}
+.stat-card .label{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px}
+.stat-card .value{font-size:24px;font-weight:700;color:#f0f6fc;margin-top:4px}
+
+/* ── Tables ──────────────────────────────────────────────────── */
+table{width:100%;border-collapse:collapse;background:#161b22;border:1px solid #21262d;border-radius:8px;overflow:hidden}
+th,td{padding:10px 14px;text-align:left;border-bottom:1px solid #21262d;font-size:13px}
+th{background:#1c2129;color:#8b949e;font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.5px}
+tr:last-child td{border-bottom:none}
+tr:hover{background:#1c2129}
+
+/* ── Tags ────────────────────────────────────────────────────── */
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap}
+.tag-green{background:#0d2818;color:#3fb950}
+.tag-red{background:#3d0e0e;color:#f85149}
+.tag-yellow{background:#3d2e00;color:#d29922}
+.tag-blue{background:#0d1d35;color:#58a6ff}
+.tag-gray{background:#21262d;color:#8b949e}
+.providers-cell{display:flex;flex-wrap:wrap;gap:4px}
+
+/* ── Provider Cards ──────────────────────────────────────────── */
+.provider-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.provider-card{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:16px;transition:border-color .15s}
+.provider-card:hover{border-color:#30363d}
+.provider-card .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.provider-card .card-header h3{font-size:14px;color:#f0f6fc}
+.provider-card .card-meta{font-size:12px;color:#8b949e;line-height:1.8}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.status-dot.ok{background:#3fb950}
+.status-dot.warn{background:#d29922}
+.status-dot.off{background:#484f58}
+
+/* ── Keys Management ─────────────────────────────────────────── */
+.key-form{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:20px;margin-bottom:20px;display:flex;gap:12px;flex-wrap:wrap;align-items:end}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:12px;color:#8b949e;font-weight:500}
+.form-group select,.form-group input[type="text"],.form-group input[type="password"]{background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:8px 12px;border-radius:6px;font-size:13px;min-width:180px}
+.form-group select:focus,.form-group input:focus{outline:none;border-color:#58a6ff}
+.btn{padding:8px 16px;border-radius:6px;border:1px solid #30363d;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s}
+.btn-primary{background:#1f6feb;color:#fff;border-color:#1f6feb}
+.btn-primary:hover{background:#388bfd}
+.btn-danger{background:transparent;color:#f85149;border-color:#f8514940}
+.btn-danger:hover{background:#3d0e0e}
+.btn-sm{padding:4px 10px;font-size:11px}
+.key-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid #21262d}
+.key-row:last-child{border-bottom:none}
+.key-row .key-val{font-family:monospace;font-size:13px;color:#8b949e;flex:1}
+.key-row .key-status{display:flex;align-items:center;gap:6px;font-size:12px}
+.key-group{background:#161b22;border:1px solid #21262d;border-radius:8px;overflow:hidden;margin-bottom:12px}
+.key-group-header{padding:12px 14px;background:#1c2129;display:flex;align-items:center;justify-content:space-between}
+.key-group-header h3{font-size:14px;color:#f0f6fc}
+
+/* ── Usage Charts ────────────────────────────────────────────── */
+.chart-container{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:20px;margin-bottom:16px}
+.chart-container h3{font-size:14px;color:#f0f6fc;margin-bottom:16px}
+.bar-chart{display:flex;align-items:flex-end;gap:4px;height:120px;padding-top:8px}
+.bar-chart .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.bar-chart .bar{width:100%;border-radius:3px 3px 0 0;min-height:2px;transition:height .3s}
+.bar-chart .bar-label{font-size:10px;color:#8b949e;transform:rotate(-45deg);white-space:nowrap}
+.bar-chart .bar-value{font-size:10px;color:#8b949e}
+
+/* ── Logs ────────────────────────────────────────────────────── */
+.log-ok{color:#3fb950}
+.log-fail{color:#f85149}
+.log-container{background:#161b22;border:1px solid #21262d;border-radius:8px;overflow:hidden}
+.log-table-wrap{max-height:600px;overflow-y:auto}
+.log-filters{padding:12px 14px;background:#1c2129;display:flex;gap:12px;align-items:center;border-bottom:1px solid #21262d}
+.log-filters select{background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:6px 10px;border-radius:6px;font-size:12px}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.refresh-btn{background:#21262d;border:1px solid #30363d;color:#c9d1d9;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px}
+.refresh-btn:hover{background:#30363d}
+
+/* ── Empty State ─────────────────────────────────────────────── */
+.empty{text-align:center;padding:40px;color:#8b949e;font-size:14px}
+
+/* ── Mobile hamburger ────────────────────────────────────────── */
+.hamburger{display:none;background:none;border:none;color:#c9d1d9;cursor:pointer;padding:8px}
+.hamburger svg{width:24px;height:24px}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .overlay.open{display:block}
+  .main{margin-left:0}
+  .hamburger{display:block}
+  .content{padding:16px}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .provider-grid{grid-template-columns:1fr}
+  .key-form{flex-direction:column}
+  .form-group select,.form-group input{min-width:100%}
+  table{font-size:12px}
+  th,td{padding:8px 10px}
+  .bar-chart .bar-label{display:none}
+}
+
+/* ── Stat extras ──────────────────────────────────────────────── */
+.stat-card .sub{font-size:12px;color:#8b949e;margin-top:2px}
+.stat-card .savings{color:#3fb950}
+.mini-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:16px}

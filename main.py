@@ -2,18 +2,28 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from config import load_config, AppConfig
+from cache import ResponseCache, response_cache
+from config import load_config, AppConfig, discover_models, PROVIDER_DEFS
+from health import HealthChecker
+from key_manager import KeyManager
+from providers import has_tool_calling
+from request_queue import RequestQueue, request_queue, BLOCKING_QUEUE
 from rate_limiter import RateLimiter
-from router import Router
+from router import Router, AllRateLimitedError
+from smart_router import SmartRouter
+from tracking import UsageTracker, usage_tracker
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,28 +34,72 @@ logger = logging.getLogger(__name__)
 # ── Globals ──────────────────────────────────────────────────────────────────
 config: AppConfig = load_config()
 rate_limiter = RateLimiter()
-router = Router(config, rate_limiter)
+health_checker = HealthChecker()
+router = Router(config, rate_limiter, health_checker)
 templates = Jinja2Templates(directory="templates")
+key_manager = KeyManager(config.master_key or "default-key")
+smart_router = SmartRouter(config.models)
 
 # Shared httpx client (reused across requests for connection pooling)
 _client: httpx.AsyncClient | None = None
+
+
+def _sync_keys_to_config() -> None:
+    """Push key_manager keys into config.providers so the router picks them up."""
+    for name, prov in config.providers.items():
+        km_keys = key_manager.get_keys(name)
+        if km_keys:
+            prov.api_keys = km_keys
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _client
     _client = httpx.AsyncClient(http2=True, follow_redirects=True)
+
+    # Auto-discover models from providers
+    try:
+        discovered = await discover_models(_client, config)
+        if discovered:
+            logger.info(
+                "Discovered %d models: %s",
+                len(discovered),
+                ", ".join(list(discovered.keys())[:10]),
+            )
+    except Exception as e:
+        logger.warning("Model discovery failed: %s", e)
+
+    # Start background health checks
+    health_checker.start(_client, config.providers)
+    # Run an initial health check immediately
+    await health_checker.check_all(_client, config.providers)
+
+    # Sync key_manager keys into config providers
+    _sync_keys_to_config()
+
+    # Start request queue workers
+    request_queue.set_router(router)
+    await request_queue.start_workers(num_workers=3)
+
     logger.info(
         "Gateway started — %d models, %d providers configured",
         len(config.models),
         sum(1 for p in config.providers.values() if p.api_key),
     )
     yield
+
+    # Shutdown
+    await request_queue.stop_workers()
+    usage_tracker.flush()
+    await health_checker.stop()
     if _client:
         await _client.aclose()
 
 
 app = FastAPI(title="Free LLM Gateway", version="1.0.0", lifespan=lifespan)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 # ── Auth middleware ───────────────────────────────────────────────────────────
@@ -70,8 +124,65 @@ async def chat_completions(request: Request, authorization: str | None = Header(
     if not model:
         raise HTTPException(400, "Missing 'model' field")
 
-    result, provider, provider_model = await router.route_request(model, body, _client)
+    # ── Smart routing: resolve model name via aliases and equivalence ──
+    resolved = smart_router.resolve(model)
+    if resolved.substitution:
+        logger.info("Smart routing: %s", resolved.substitution)
+    model = resolved.resolved_name
 
+    # ── Tool calling auto-routing ──
+    if has_tool_calling(body):
+        model_cfg = config.models.get(model)
+        if model_cfg and not model_cfg.capabilities.supports_tools:
+            alt = smart_router.find_model_with_capability("supports_tools")
+            if alt:
+                logger.info(
+                    "Auto-routing: '%s' doesn't support tools -> '%s'",
+                    model, alt,
+                )
+                model = alt
+            else:
+                raise HTTPException(
+                    400,
+                    f"Model '{model}' does not support tool calling and no alternative found",
+                )
+
+    # ── Cache check (non-streaming only) ──
+    cache_headers = {"X-Cache": "MISS"}
+    if not stream:
+        cache_key = ResponseCache.make_key(
+            model, body.get("messages", []), body.get("temperature")
+        )
+        cached, hit = response_cache.get(cache_key)
+        if hit:
+            cache_headers["X-Cache"] = "HIT"
+            cached.setdefault("model", model)
+            return JSONResponse(content=cached, headers=cache_headers)
+
+    # ── Route request ──
+    try:
+        result, provider, provider_model = await router.route_request(model, body, _client)
+    except AllRateLimitedError:
+        # All providers rate-limited → queue the request
+        return await _handle_rate_limited(model, body, stream)
+
+    # ── Record token usage ──
+    if isinstance(result, dict):
+        usage = result.get("usage")
+        if usage and isinstance(usage, dict):
+            usage_tracker.record(
+                model=model,
+                provider=provider,
+                prompt_tokens=usage.get("prompt_tokens", 0) or 0,
+                completion_tokens=usage.get("completion_tokens", 0) or 0,
+                total_tokens=usage.get("total_tokens", 0) or 0,
+            )
+
+        # ── Cache the response (non-streaming only) ──
+        if not stream:
+            response_cache.put(cache_key, result)
+
+    # ── Return response ──
     if stream and hasattr(result, "__aiter__"):
         return StreamingResponse(
             result,
@@ -81,14 +192,50 @@ async def chat_completions(request: Request, authorization: str | None = Header(
                 "X-Accel-Buffering": "no",
                 "X-Provider": provider,
                 "X-Provider-Model": provider_model,
+                "X-Cache": "BYPASS",
             },
         )
 
     # Non-streaming: ensure it's a dict
     if isinstance(result, dict):
         result.setdefault("model", provider_model)
-        return result
-    return result
+    cache_headers["X-Provider"] = provider
+    cache_headers["X-Provider-Model"] = provider_model
+    return JSONResponse(content=result, headers=cache_headers)
+
+
+async def _handle_rate_limited(model: str, body: dict, stream: bool):
+    """Handle the case where all providers are rate-limited."""
+    if stream:
+        raise HTTPException(429, "All providers rate-limited. Retry later.")
+
+    try:
+        req_id, wait_time, queued_req = await request_queue.enqueue(model, body)
+    except RuntimeError:
+        raise HTTPException(503, "Queue is full. All providers rate-limited. Retry later.")
+
+    if BLOCKING_QUEUE and queued_req:
+        # Block and wait for result
+        try:
+            result = await request_queue.get_result(req_id)
+            return JSONResponse(
+                content=result,
+                headers={"X-Queued": "true", "X-Request-Id": req_id},
+            )
+        except Exception:
+            raise HTTPException(504, "Queued request timed out")
+
+    # Non-blocking: return 202 with polling info
+    return JSONResponse(
+        status_code=202,
+        content={
+            "id": req_id,
+            "status": "queued",
+            "estimated_wait_seconds": wait_time,
+            "poll_url": f"/api/queue/{req_id}",
+        },
+        headers={"X-Request-Id": req_id},
+    )
 
 
 # ── Models list ──────────────────────────────────────────────────────────────
@@ -106,6 +253,11 @@ async def list_models(authorization: str | None = Header(None)):
             "object": "model",
             "owned_by": "free-llm-gateway",
             "providers": providers,
+            "capabilities": {
+                "supports_tools": model_cfg.capabilities.supports_tools,
+                "supports_vision": model_cfg.capabilities.supports_vision,
+                "supports_streaming": model_cfg.capabilities.supports_streaming,
+            },
         })
     return {"object": "list", "data": models}
 
@@ -142,33 +294,293 @@ async def embeddings(request: Request, authorization: str | None = Header(None))
     raise HTTPException(502, "All embedding providers failed")
 
 
+# ── Usage tracking API ───────────────────────────────────────────────────────
+@app.get("/api/usage")
+async def api_usage(authorization: str | None = Header(None)):
+    verify_master_key(authorization)
+    return usage_tracker.get_stats()
+
+
+# ── Cache API ────────────────────────────────────────────────────────────────
+@app.get("/api/cache")
+async def api_cache_stats(authorization: str | None = Header(None)):
+    verify_master_key(authorization)
+    return response_cache.stats()
+
+
+@app.delete("/api/cache")
+async def api_cache_clear(authorization: str | None = Header(None)):
+    verify_master_key(authorization)
+    cleared = response_cache.clear()
+    return {"cleared": cleared}
+
+
+@app.post("/api/cache/prune")
+async def api_cache_prune(authorization: str | None = Header(None)):
+    verify_master_key(authorization)
+    pruned = response_cache.prune_expired()
+    return {"pruned": pruned}
+
+
+# ── Queue API ────────────────────────────────────────────────────────────────
+@app.get("/api/queue")
+async def api_queue_stats(authorization: str | None = Header(None)):
+    verify_master_key(authorization)
+    return {
+        **request_queue.stats(),
+        "pending": request_queue.get_pending_list(),
+    }
+
+
+@app.get("/api/queue/{request_id}")
+async def api_queue_poll(request_id: str, authorization: str | None = Header(None)):
+    verify_master_key(authorization)
+    req = request_queue._pending.get(request_id)
+    if not req:
+        raise HTTPException(404, f"Request {request_id} not found")
+    return {
+        "id": req.id,
+        "model": req.model,
+        "status": req.status,
+        "attempts": req.attempts,
+        "result": req.result,
+        "error": req.error,
+    }
+
+
 # ── Dashboard ────────────────────────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request):
-    model_status = router.get_model_status()
-    rate_status = rate_limiter.get_all_status()
-    logs = router.get_logs(50)
-    providers_with_keys = {
-        name: bool(p.api_key) for name, p in config.providers.items()
+async def dashboard():
+    from pathlib import Path
+    html = Path("templates/dashboard.html").read_text()
+    return HTMLResponse(content=html)
+
+
+# ── Model resolution ─────────────────────────────────────────────────────────
+@app.get("/api/models/resolve")
+async def resolve_model(name: str, authorization: str | None = Header(None)):
+    """Resolve a model name through aliases and equivalence mapping."""
+    verify_master_key(authorization)
+    if not name:
+        raise HTTPException(400, "Missing 'name' query parameter")
+    result = smart_router.resolve(name)
+    model_cfg = config.models.get(result.resolved_name)
+    capabilities = None
+    if model_cfg:
+        capabilities = {
+            "supports_tools": model_cfg.capabilities.supports_tools,
+            "supports_vision": model_cfg.capabilities.supports_vision,
+            "supports_streaming": model_cfg.capabilities.supports_streaming,
+        }
+    return {
+        "original_name": result.original_name,
+        "resolved_name": result.resolved_name,
+        "alias_used": result.alias_used,
+        "substitution": result.substitution,
+        "available": result.resolved_name in config.models,
+        "capabilities": capabilities,
     }
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "models": model_status,
-        "rate_limits": rate_status,
-        "logs": logs,
-        "providers": providers_with_keys,
-        "total_models": len(model_status),
-        "total_providers": sum(1 for v in providers_with_keys.values() if v),
-    })
 
 
 @app.get("/api/status")
 async def api_status():
+    providers_info = {}
+    for name, p in config.providers.items():
+        providers_info[name] = {
+            "has_key": bool(p.api_keys),
+            "total_keys": p.total_keys,
+            "active_key_index": p.active_key_index,
+            "base_url": p.base_url,
+        }
     return {
         "models": router.get_model_status(),
         "rate_limits": rate_limiter.get_all_status(),
+        "health": health_checker.get_all_health(),
         "logs": router.get_logs(50),
+        "usage": usage_tracker.get_stats(),
+        "cache": response_cache.stats(),
+        "queue": request_queue.stats(),
+        "providers": providers_info,
     }
+
+
+# ── Model discovery ──────────────────────────────────────────────────────────
+@app.post("/api/discover")
+async def api_discover(authorization: str | None = Header(None)):
+    verify_master_key(authorization)
+    if not _client:
+        raise HTTPException(503, "Server not ready")
+    discovered = await discover_models(_client, config)
+    return {
+        "discovered_count": len(discovered),
+        "discovered_models": list(discovered.keys()),
+        "total_models": len(config.models),
+    }
+
+
+# ── API Key Management ───────────────────────────────────────────────────────
+@app.post("/api/keys")
+async def add_key(request: Request):
+    body = await request.json()
+    provider = body.get("provider", "").strip()
+    key = body.get("key", "").strip()
+    if not provider or not key:
+        raise HTTPException(400, "Missing 'provider' or 'key'")
+    if provider not in PROVIDER_DEFS:
+        raise HTTPException(400, f"Unknown provider: {provider}")
+    index = key_manager.add_key(provider, key)
+    _sync_keys_to_config()
+    return {"ok": True, "provider": provider, "index": index}
+
+
+@app.delete("/api/keys/{provider}/{index}")
+async def remove_key(provider: str, index: int):
+    if not key_manager.remove_key(provider, index):
+        raise HTTPException(404, "Key not found")
+    _sync_keys_to_config()
+    return {"ok": True}
+
+
+@app.get("/api/keys")
+async def list_keys():
+    return {"keys": key_manager.list_keys()}
+
+
+@app.post("/api/keys/{provider}/validate")
+async def validate_provider_keys(provider: str):
+    """Validate all keys for a provider by testing each against the /models endpoint."""
+    keys = key_manager.get_keys(provider)
+    if not keys:
+        raise HTTPException(404, f"No keys found for provider: {provider}")
+
+    prov_def = PROVIDER_DEFS.get(provider)
+    if not prov_def:
+        raise HTTPException(400, f"Unknown provider: {provider}")
+
+    results = []
+    for i, api_key in enumerate(keys):
+        base_url = prov_def[1]
+        if "{account_id}" in base_url:
+            base_url = base_url.replace("{account_id}", os.environ.get("CLOUDFLARE_ACCOUNT_ID", ""))
+        test_url = f"{base_url}/models"
+        headers = {"Authorization": f"Bearer " + api_key}
+        if provider == "openrouter":
+            headers["HTTP-Referer"] = "https://github.com/free-llm-gateway"
+            headers["X-Title"] = "Free LLM Gateway"
+        try:
+            resp = await _client.get(test_url, headers=headers, timeout=15.0)
+            valid = resp.status_code < 400
+            key_manager.set_validated(provider, i, valid)
+            results.append({"index": i, "valid": valid})
+        except Exception as e:
+            key_manager.set_validated(provider, i, False)
+            results.append({"index": i, "valid": False, "error": str(e)[:200]})
+
+    return {"provider": provider, "results": results}
+
+
+@app.post("/api/keys/{provider}/{index}/validate")
+async def validate_key(provider: str, index: int):
+    keys = key_manager.get_keys(provider)
+    if index < 0 or index >= len(keys):
+        raise HTTPException(404, "Key not found")
+
+    api_key = keys[index]
+    prov_def = PROVIDER_DEFS.get(provider)
+    if not prov_def:
+        raise HTTPException(400, f"Unknown provider: {provider}")
+
+    base_url = prov_def[1]
+    if "{account_id}" in base_url:
+        import os
+        base_url = base_url.replace("{account_id}", os.environ.get("CLOUDFLARE_ACCOUNT_ID", ""))
+
+    # Try a lightweight models list request
+    test_url = f"{base_url}/models"
+    headers = {"Authorization": f"Bearer " + api_key}
+    if provider == "openrouter":
+        headers["HTTP-Referer"] = "https://github.com/free-llm-gateway"
+        headers["X-Title"] = "Free LLM Gateway"
+
+    try:
+        resp = await _client.get(test_url, headers=headers, timeout=15.0)
+        valid = resp.status_code < 400
+        key_manager.set_validated(provider, index, valid)
+        if valid:
+            return {"valid": True}
+        else:
+            return {"valid": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+    except Exception as e:
+        key_manager.set_validated(provider, index, False)
+        return {"valid": False, "error": str(e)[:200]}
+
+
+# ── Batch requests ────────────────────────────────────────────────────────────
+BATCH_MAX_SIZE = int(os.environ.get("BATCH_MAX_SIZE", "10"))
+
+
+@app.post("/v1/batch")
+async def batch_requests(request: Request, authorization: str | None = Header(None)):
+    """Execute multiple chat completion requests in parallel.
+
+    Body: {"requests": [{"model": "...", "messages": [...]}, ...]}
+    Returns results as array in the same order. Each item is independent.
+    """
+    verify_master_key(authorization)
+    body = await request.json()
+    requests_list = body.get("requests", [])
+
+    if not requests_list:
+        return {"object": "batch", "results": []}
+
+    if len(requests_list) > BATCH_MAX_SIZE:
+        raise HTTPException(
+            400,
+            f"Batch size {len(requests_list)} exceeds maximum of {BATCH_MAX_SIZE}",
+        )
+
+    async def _process_batch_item(idx: int, req: dict) -> dict:
+        model = req.get("model", "")
+        if not model:
+            return {
+                "index": idx, "success": False,
+                "error": "Missing 'model' field",
+            }
+
+        # Smart routing for each item
+        resolved = smart_router.resolve(model)
+        resolved_model = resolved.resolved_name
+
+        # Tool auto-routing
+        if has_tool_calling(req):
+            model_cfg = config.models.get(resolved_model)
+            if model_cfg and not model_cfg.capabilities.supports_tools:
+                alt = smart_router.find_model_with_capability("supports_tools")
+                if alt:
+                    resolved_model = alt
+
+        # Disable streaming in batch — not useful here
+        batch_req = {**req, "stream": False, "model": resolved_model}
+
+        try:
+            result, provider, provider_model = await router.route_request(
+                resolved_model, batch_req, _client,
+            )
+            if isinstance(result, dict):
+                result.setdefault("model", provider_model)
+            return {
+                "index": idx, "success": True,
+                "result": result, "provider": provider,
+                "provider_model": provider_model,
+                "substitution": resolved.substitution,
+            }
+        except Exception as e:
+            return {"index": idx, "success": False, "error": str(e)[:500]}
+
+    results = await asyncio.gather(
+        *[_process_batch_item(i, req) for i, req in enumerate(requests_list)]
+    )
+    return {"object": "batch", "results": list(results)}
 
 
 # ── Entry point ──────────────────────────────────────────────────────────────
