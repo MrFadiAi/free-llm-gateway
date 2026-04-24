@@ -1,16 +1,25 @@
 # Free LLM Gateway 🔑
 
-A unified OpenAI-compatible API server that aggregates **14 free LLM providers** into one endpoint. Configure your free API keys in `.env`, then use **one base URL + one master key** to access every model.
+A unified OpenAI-compatible API server that aggregates **14+ free LLM providers** into one endpoint. Configure your free API keys in `.env`, then use **one base URL + one master key** to access every model.
+
+[**العربية**](README_AR.md) | **English**
 
 ## Features
 
 - **Single endpoint** — `http://localhost:8080/v1` (OpenAI SDK-compatible)
-- **14 providers** — OpenRouter, GitHub Models, Groq, Cerebras, Cloudflare, HuggingFace, NVIDIA, SiliconFlow, Cohere, Google Gemini, Mistral, Kilo, LLM7, Ollama Cloud
-- **40+ models** — pre-configured with provider fallback chains
+- **14+ providers** — OpenRouter, GitHub Models, Groq, Cerebras, Cloudflare, HuggingFace, NVIDIA, SiliconFlow, Cohere, Google Gemini, Mistral, Kilo, LLM7, Ollama Cloud
+- **260+ free models** — auto-discovered from all providers
 - **Automatic fallback** — if one provider fails (rate limit, error, timeout), tries the next
-- **Rate limit tracking** — per-provider RPM/RPD monitoring with auto-rotation
+- **Round-robin load balancing** — distributes requests across providers
+- **Rate limit tracking** — per-provider monitoring with auto-rotation
 - **Streaming support** — full SSE passthrough
-- **Web dashboard** — live status at `http://localhost:8080/`
+- **Web dashboard** — live status, analytics, key management at `http://localhost:8080/`
+- **Auto-sync** — pulls new free models from [awesome-free-llm-apis](https://github.com/mnfst/awesome-free-llm-apis)
+- **Analytics** — usage tracking, estimated savings, provider success rates
+- **Key health validation** — one-click test all API keys
+- **Smart routing** — 60+ model aliases (type "gpt-4" → best available model)
+- **Batch requests** — fan out multiple requests in parallel
+- **Docker support** — one command to deploy
 
 ## Quick Start
 
@@ -30,68 +39,30 @@ cp .env.example .env
 python main.py
 ```
 
+Open `http://127.0.0.1:8080/` for the dashboard.
+
 ## Configuration
-
-### Docker
-
-Run with Docker Compose:
-
-```bash
-# 1. Configure API keys
-cp .env.example .env
-# Edit .env — add at least one provider API key
-
-# 2. Build and start
-docker compose up -d
-
-# 3. Check status
-docker compose ps
-curl http://localhost:8080/api/status
-
-# View logs
-docker compose logs -f
-
-# Stop
-docker compose down
-```
-
-The `data/` directory is mounted as a volume for persistent usage data. The `.env` file is mounted read-only.
 
 ### Environment Variables (`.env`)
 
-| Variable | Description |
-|---|---|
-| `MASTER_KEY` | Your gateway API key — clients must send `Authorization: Bearer <MASTER_KEY>` |
-| `OPENROUTER_KEY` | [Get free key ↗](https://openrouter.ai/) — largest free model catalog |
-| `GITHUB_KEY` | [Get free key ↗](https://github.com/marketplace/models) — OpenAI, Meta, Mistral models |
-| `GROQ_KEY` | [Get free key ↗](https://console.groq.com/) — ultra-fast inference |
-| `CEREBRAS_KEY` | [Get free key ↗](https://cloud.cerebras.ai/) — fastest Llama inference |
-| `NVIDIA_KEY` | [Get free key ↗](https://build.nvidia.com/) — 100+ models, no daily cap |
-| `GOOGLE_GEMINI_KEY` | [Get free key ↗](https://aistudio.google.com/apikey) — Gemini 2.5 Flash |
-| `MISTRAL_KEY` | [Get free key ↗](https://console.mistral.ai/) — Mistral Small/Large/Codestral |
-| `COHERE_KEY` | [Get free key ↗](https://dashboard.cohere.com/) — Command R+ |
-| `SILICONFLOW_KEY` | [Get free key ↗](https://siliconflow.cn/) — Qwen, DeepSeek, GLM |
-| `HUGGINGFACE_KEY` | [Get free key ↗](https://huggingface.co/settings/tokens) |
-| `CLOUDFLARE_KEY` | Cloudflare Workers AI key |
-| `KILO_KEY` | Kilo API key |
-| `LLM7_KEY` | LLM7 API key (no key needed for basic access) |
-| `HOST` | Server host (default: `0.0.0.0`) |
-| `PORT` | Server port (default: `8080`) |
-| `RETRY_MAX_ATTEMPTS` | Max retries per provider on 5xx errors (default: `2`) |
-| `RETRY_BACKOFF_BASE` | Base seconds for exponential backoff (default: `1.0`, sequence: 1s, 2s, 4s...) |
+| Variable | Description | Get Free Key |
+|---|---|---|
+| `MASTER_KEY` | Your gateway API key | Set anything you want |
+| `OPENROUTER_KEY` | Largest free model catalog | [openrouter.ai ↗](https://openrouter.ai/keys) |
+| `NVIDIA_KEY` | 100+ models, no daily cap | [build.nvidia.com ↗](https://build.nvidia.com/) |
+| `GITHUB_KEY` | OpenAI, Meta, Mistral models | [GitHub Tokens ↗](https://github.com/settings/tokens) |
+| `GROQ_KEY` | Ultra-fast inference | [console.groq.com ↗](https://console.groq.com/) |
+| `CEREBRAS_KEY` | Fastest Llama inference (~2,600 tok/s) | [cloud.cerebras.ai ↗](https://cloud.cerebras.ai/) |
+| `GOOGLE_GEMINI_KEY` | Gemini 2.5 Flash, 1M context | [aistudio.google.com ↗](https://aistudio.google.com/apikey) |
+| `MISTRAL_KEY` | Mistral Small/Large/Codestral | [console.mistral.ai ↗](https://console.mistral.ai/) |
+| `COHERE_KEY` | Command R+ (1K calls/month) | [dashboard.cohere.com ↗](https://dashboard.cohere.com/) |
+| `SILICONFLOW_KEY` | Qwen, DeepSeek, GLM | [siliconflow.cn ↗](https://siliconflow.cn/) |
+| `HUGGINGFACE_KEY` | Thousands of community models | [huggingface.co ↗](https://huggingface.co/settings/tokens) |
+| `CLOUDFLARE_KEY` | 50+ models, 10K neurons/day | [Cloudflare Workers AI ↗](https://dash.cloudflare.com/) |
+| `KILO_KEY` | Free model gateway | [kilo.ai ↗](https://kilo.ai/) |
+| `LLM7_KEY` | No registration needed | [llm7.io ↗](https://llm7.io/) |
 
-You only need **at least one** provider key to get started. Add more for better availability.
-
-**Multiple keys per provider** — load balance across keys:
-```bash
-# Comma-separated
-OPENROUTER_KEY=key1,key2,key3
-
-# Or indexed
-OPENROUTER_KEY_1=key1
-OPENROUTER_KEY_2=key2
-```
-Keys are rotated round-robin. On 429/auth errors, the gateway automatically switches to the next key.
+You only need **at least one** provider key to get started.
 
 ### Model Configuration (`models.yaml`)
 
@@ -106,8 +77,6 @@ models:
       model: meta/llama-3.1-405b-instruct
 ```
 
-The gateway tries providers in order. If the first fails, it falls back to the next.
-
 ## Usage
 
 ### With OpenAI SDK (Python)
@@ -120,22 +89,11 @@ client = OpenAI(
     api_key="your-master-key",
 )
 
-# Chat completion
 response = client.chat.completions.create(
     model="llama-3.3-70b",
     messages=[{"role": "user", "content": "Hello!"}],
 )
 print(response.choices[0].message.content)
-
-# Streaming
-stream = client.chat.completions.create(
-    model="deepseek-r1",
-    messages=[{"role": "user", "content": "Explain quantum computing"}],
-    stream=True,
-)
-for chunk in stream:
-    if chunk.choices[0].delta.content:
-        print(chunk.choices[0].delta.content, end="", flush=True)
 ```
 
 ### With curl
@@ -150,17 +108,11 @@ curl http://localhost:8080/v1/chat/completions \
   -H "Authorization: Bearer your-master-key" \
   -H "Content-Type: application/json" \
   -d '{"model": "llama-3.3-70b", "messages": [{"role": "user", "content": "Hello!"}]}'
-
-# Streaming
-curl http://localhost:8080/v1/chat/completions \
-  -H "Authorization: Bearer your-master-key" \
-  -H "Content-Type: application/json" \
-  -d '{"model": "deepseek-r1", "messages": [{"role": "user", "content": "Hello!"}], "stream": true}'
 ```
 
 ### With any OpenAI-compatible tool
 
-Point any tool that supports custom OpenAI base URLs to `http://localhost:8080/v1` with your master key as the API key. Works with Cursor, LibreChat, Open WebUI, and more.
+Point any tool that supports custom OpenAI base URLs to `http://localhost:8080/v1` with your master key as the API key. Works with Cursor, LibreChat, Open WebUI, OpenClaw, and more.
 
 ## API Endpoints
 
@@ -168,170 +120,47 @@ Point any tool that supports custom OpenAI base URLs to `http://localhost:8080/v
 |---|---|---|
 | `/v1/chat/completions` | POST | Chat completions (with streaming) |
 | `/v1/models` | GET | List all available models |
-| `/v1/embeddings` | POST | Text embeddings (pass-through) |
+| `/v1/batch` | POST | Batch requests (parallel) |
+| `/v1/embeddings` | POST | Text embeddings |
 | `/` | GET | Web dashboard |
-| `/api/status` | GET | JSON status (models, rate limits, logs) |
+| `/api/status` | GET | JSON status |
+| `/api/analytics` | GET | Usage analytics + savings |
+| `/api/keys/validate-all` | POST | Validate all API keys |
+| `/api/auto-update` | GET | Re-scan providers for new models |
+| `/api/sync-providers` | POST | Sync from awesome-free-llm-apis |
+| `/api/config/openclaw` | GET | OpenClaw config export |
+| `/api/config/hermes` | GET | Hermes config export |
+
+## Auto-Updates
+
+Keep models fresh with zero effort:
+
+1. **Dashboard** → Setup tab → "Sync Providers" button
+2. **Terminal** → `python3 sync_providers.py`
+3. **Auto-cron** → weekly sync from awesome-free-llm-apis
+
+New providers and models appear automatically.
+
+## Docker
+
+```bash
+docker-compose up -d
+```
 
 ## Architecture
 
 ```
-Client → Gateway (localhost:8080)
-           ├── Auth check (MASTER_KEY)
-           ├── Route to provider fallback chain
-           ├── Rate limit check per provider
-           ├── Forward request to provider
-           └── Fallback on failure/rate-limit
+Any AI Tool → Gateway (localhost:8080)
+               ├── Auth check (MASTER_KEY)
+               ├── Smart routing with 60+ aliases
+               ├── Round-robin load balancing
+               ├── Rate limit tracking per provider
+               ├── Auto-fallback on failure
+               ├── Response caching (LRU + TTL)
+               ├── Request queuing with backoff
+               └── Usage analytics + savings tracker
 ```
 
 ## License
-
-MIT
-
----
-
-# بوابة النماذج اللغوية المجانية 🔑
-
-خادم API متوافق مع OpenAI يجمع **14 مزود نماذج لغوية مجانية** في نقطة وصول واحدة. قم بإعداد مفاتيح API المجانية في ملف `.env`، ثم استخدم **رابط أساسي واحد + مفتاح رئيسي واحد** للوصول إلى جميع النماذج.
-
-## المميزات
-
-- **نقطة وصول واحدة** — `http://localhost:8080/v1` (متوافق مع OpenAI SDK)
-- **14 مزود خدمة** — OpenRouter, GitHub Models, Groq, Cerebras, Cloudflare, HuggingFace, NVIDIA, SiliconFlow, Cohere, Google Gemini, Mistral, Kilo, LLM7, Ollama Cloud
-- **أكثر من 40 نموذج** — مُعدة مسبقاً بسلاسل احتياطية بين المزودين
-- **تبديل تلقائي** — إذا فشل مزود (حد المعدل، خطأ، انتهاء المهلة)، ينتقل تلقائياً للتالي
-- **تتبع حدود المعدل** — مراقبة RPM/RPD لكل مزود مع التبديل التلقائي
-- **دعم البث** — تمرير SSE الكامل
-- **لوحة تحكم ويب** — حالة مباشرة على `http://localhost:8080/`
-
-## التشغيل السريع
-
-```bash
-# 1. استنساخ المشروع
-git clone https://github.com/MrFadiAi/free-llm-gateway.git
-cd free-llm-gateway
-
-# 2. تثبيت المتطلبات
-pip install -r requirements.txt
-
-# 3. إعداد مفاتيح API
-cp .env.example .env
-# عدّل .env — أضف مفتاح مزود واحد على الأقل
-
-# 4. تشغيل البوابة
-python main.py
-```
-
-### تشغيل مع Docker
-
-```bash
-# 1. إعداد مفاتيح API
-cp .env.example .env
-# عدّل .env — أضف مفتاح مزود واحد على الأقل
-
-# 2. بناء وتشغيل
-docker compose up -d
-
-# 3. التحقق من الحالة
-docker compose ps
-curl http://localhost:8080/api/status
-
-# عرض السجلات
-docker compose logs -f
-
-# إيقاف
-docker compose down
-```
-
-مجلد `data/` مُثبَّت كحجم للبيانات المستمرة. ملف `.env` مُثبَّت للقراءة فقط.
-
-## الإعدادات
-
-### متغيرات البيئة (`.env`)
-
-| المتغير | الوصف |
-|---|---|
-| `MASTER_KEY` | مفتاح البوابة الخاص بك — يجب على العملاء إرسال `Authorization: Bearer <MASTER_KEY>` |
-| `OPENROUTER_KEY` | [احصل على مفتاح مجاني ↗](https://openrouter.ai/) — أكبر كتالوج نماذج مجانية |
-| `GITHUB_KEY` | [احصل على مفتاح مجاني ↗](https://github.com/marketplace/models) — نماذج OpenAI و Meta و Mistral |
-| `GROQ_KEY` | [احصل على مفتاح مجاني ↗](https://console.groq.com/) — استنتاج فائق السرعة |
-| `CEREBRAS_KEY` | [احصل على مفتاح مجاني ↗](https://cloud.cerebras.ai/) — أسرع استنتاج لـ Llama |
-| `NVIDIA_KEY` | [احصل على مفتاح مجاني ↗](https://build.nvidia.com/) — أكثر من 100 نموذج بدون حد يومي |
-| `GOOGLE_GEMINI_KEY` | [احصل على مفتاح مجاني ↗](https://aistudio.google.com/apikey) — Gemini 2.5 Flash |
-| `MISTRAL_KEY` | [احصل على مفتاح مجاني ↗](https://console.mistral.ai/) — Mistral Small/Large/Codestral |
-| `COHERE_KEY` | [احصل على مفتاح مجاني ↗](https://dashboard.cohere.com/) — Command R+ |
-| `SILICONFLOW_KEY` | [احصل على مفتاح مجاني ↗](https://siliconflow.cn/) — Qwen و DeepSeek و GLM |
-
-تحتاج **مفتاح مزود واحد على الأقل** للبدء. أضف المزيد لزيادة التوفر.
-
-**مفاتيح متعددة لكل مزود** — توزيع الحمل عبر المفاتيح:
-```bash
-# مفصولة بفواصل
-OPENROUTER_KEY=key1,key2,key3
-
-# أو مفهرسة
-OPENROUTER_KEY_1=key1
-OPENROUTER_KEY_2=key2
-```
-يتم تدوير المفاتيح بالتناوب. عند خطأ 429/مصادقة، تنتقل البوابة تلقائياً إلى المفتاح التالي.
-
-### إعداد النماذج (`models.yaml`)
-
-النماذج مُعرَّفة بسلاسل احتياطية مرتبة:
-
-```yaml
-models:
-  llama-3.3-70b:
-    - provider: openrouter
-      model: meta-llama/llama-3.3-70b-instruct:free
-    - provider: nvidia
-      model: meta/llama-3.1-405b-instruct
-```
-
-تحاول البوابة المزودين بالترتيب. إذا فشل الأول، تنتقل إلى التالي.
-
-## الاستخدام
-
-### مع OpenAI SDK (بايثون)
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="http://localhost:8080/v1",
-    api_key="your-master-key",
-)
-
-response = client.chat.completions.create(
-    model="llama-3.3-70b",
-    messages=[{"role": "user", "content": "مرحبا!"}],
-)
-print(response.choices[0].message.content)
-```
-
-### مع curl
-
-```bash
-# قائمة النماذج المتاحة
-curl http://localhost:8080/v1/models \
-  -H "Authorization: Bearer your-master-key"
-
-# إكمال محادثة
-curl http://localhost:8080/v1/chat/completions \
-  -H "Authorization: Bearer your-master-key" \
-  -H "Content-Type: application/json" \
-  -d '{"model": "llama-3.3-70b", "messages": [{"role": "user", "content": "مرحبا!"}]}'
-```
-
-## نقاط API
-
-| النقطة | الطريقة | الوصف |
-|---|---|---|
-| `/v1/chat/completions` | POST | إكمال المحادثات (مع البث) |
-| `/v1/models` | GET | قائمة جميع النماذج المتاحة |
-| `/v1/embeddings` | POST | تضمين النصوص |
-| `/` | GET | لوحة التحكم |
-| `/api/status` | GET | حالة JSON (نماذج، حدود، سجلات) |
-
-## الترخيص
 
 MIT
