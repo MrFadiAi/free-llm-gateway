@@ -1,16 +1,16 @@
 {
   "daily": {
     "2026-04-24": {
-      "requests": 7,
-      "prompt_tokens": 228,
-      "completion_tokens": 104,
-      "total_tokens": 332,
+      "requests": 8,
+      "prompt_tokens": 247,
+      "completion_tokens": 110,
+      "total_tokens": 357,
       "by_provider": {
         "nvidia": {
-          "requests": 5,
-          "prompt_tokens": 199,
-          "completion_tokens": 34,
-          "total_tokens": 233
+          "requests": 6,
+          "prompt_tokens": 218,
+          "completion_tokens": 40,
+          "total_tokens": 258
         },
         "openrouter": {
           "requests": 2,
@@ -37,14 +37,20 @@
           "prompt_tokens": 18,
           "completion_tokens": 20,
           "total_tokens": 38
+        },
+        "gemma-4-31b": {
+          "requests": 1,
+          "prompt_tokens": 19,
+          "completion_tokens": 6,
+          "total_tokens": 25
         }
       }
     }
   },
   "total": {
-    "requests": 7,
-    "prompt_tokens": 228,
-    "completion_tokens": 104,
-    "total_tokens": 332
+    "requests": 8,
+    "prompt_tokens": 247,
+    "completion_tokens": 110,
+    "total_tokens": 357
   }
 }

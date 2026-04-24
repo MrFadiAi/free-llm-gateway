@@ -36,7 +36,7 @@ models:
       - provider: openrouter
         model: google/gemma-4-31b-it:free
       - provider: nvidia
-        model: google/gemma-4-31b
+        model: google/gemma-4-31b-it
 
   gemma-4-26b:
     capabilities:
@@ -47,7 +47,7 @@ models:
       - provider: openrouter
         model: google/gemma-4-26b-a4b-it:free
       - provider: nvidia
-        model: google/gemma-4-31b
+        model: google/gemma-4-31b-it
 
   gemma-3-27b:
     capabilities:
