@@ -1,0 +1,50 @@
+{
+  "daily": {
+    "2026-04-24": {
+      "requests": 7,
+      "prompt_tokens": 228,
+      "completion_tokens": 104,
+      "total_tokens": 332,
+      "by_provider": {
+        "nvidia": {
+          "requests": 5,
+          "prompt_tokens": 199,
+          "completion_tokens": 34,
+          "total_tokens": 233
+        },
+        "openrouter": {
+          "requests": 2,
+          "prompt_tokens": 29,
+          "completion_tokens": 70,
+          "total_tokens": 99
+        }
+      },
+      "by_model": {
+        "llama-3.3-70b": {
+          "requests": 5,
+          "prompt_tokens": 199,
+          "completion_tokens": 34,
+          "total_tokens": 233
+        },
+        "deepseek-r1": {
+          "requests": 1,
+          "prompt_tokens": 11,
+          "completion_tokens": 50,
+          "total_tokens": 61
+        },
+        "nemotron-super-120b": {
+          "requests": 1,
+          "prompt_tokens": 18,
+          "completion_tokens": 20,
+          "total_tokens": 38
+        }
+      }
+    }
+  },
+  "total": {
+    "requests": 7,
+    "prompt_tokens": 228,
+    "completion_tokens": 104,
+    "total_tokens": 332
+  }
+}

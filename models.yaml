@@ -158,8 +158,10 @@ models:
       supports_vision: false
       supports_streaming: true
     fallbacks:
+      - provider: openrouter
+        model: deepseek/deepseek-r1-0528
       - provider: nvidia
-        model: deepseek-ai/deepseek-r1
+        model: deepseek-ai/deepseek-v3.2
 
   # ── GLM ───────────────────────────────────────────────────────────────────
   glm-4.5-air:
