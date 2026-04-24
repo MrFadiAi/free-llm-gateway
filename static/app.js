@@ -885,6 +885,39 @@
       updateBtn.textContent = '🔄 Scan for New Models';
     });
     container.appendChild(updateBtn);
+
+    // Sync from awesome-free-llm-apis
+    var syncInfo = document.createElement('p');
+    syncInfo.style.cssText = 'color:#8b949e;font-size:13px;margin:16px 0 8px;line-height:1.6';
+    syncInfo.innerHTML = 'Sync from <a href="https://github.com/mnfst/awesome-free-llm-apis" target="_blank" style="color:#58a6ff">awesome-free-llm-apis</a> to get new providers and models.';
+    container.appendChild(syncInfo);
+
+    var syncBtn = document.createElement('button');
+    syncBtn.className = 'btn btn-secondary';
+    syncBtn.textContent = '🌐 Sync Providers from Upstream';
+    syncBtn.addEventListener('click', async function() {
+      syncBtn.disabled = true;
+      syncBtn.textContent = 'Syncing...';
+      try {
+        var resp = await fetch('/api/sync-providers', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + (info.master_key || '') }
+        });
+        if (resp.ok) {
+          var result = await resp.json();
+          alert('Synced! ' + result.new_models + ' new models from ' + result.providers + ' providers. Total: ' + result.total_models);
+          loadStatus();
+        } else {
+          var err = await resp.text();
+          alert('Sync failed: ' + err);
+        }
+      } catch(e) {
+        alert('Error: ' + e.message);
+      }
+      syncBtn.disabled = false;
+      syncBtn.textContent = '🌐 Sync Providers from Upstream';
+    });
+    container.appendChild(syncBtn);
   }
 
   function makeCopyBtn(text) {

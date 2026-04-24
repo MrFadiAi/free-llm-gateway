@@ -15,6 +15,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from cache import ResponseCache, response_cache
+import sys
+from pathlib import Path
+
 from config import load_config, AppConfig, discover_models, PROVIDER_DEFS
 from health import HealthChecker
 from key_manager import KeyManager
@@ -592,6 +595,33 @@ TOP_RECOMMENDED_MODELS = [
 def _get_base_url() -> str:
     host = config.host if config.host != "0.0.0.0" else "localhost"
     return f"http://{host}:{config.port}/v1"
+
+
+@app.post("/api/sync-providers")
+async def api_sync_providers(authorization: str | None = Header(None)):
+    """Sync providers from awesome-free-llm-apis upstream."""
+    verify_master_key(authorization)
+    import subprocess
+    import json as _json
+    try:
+        result = subprocess.run(
+            [sys.executable, str(Path(__file__).parent / "sync_providers.py")],
+            capture_output=True, text=True, timeout=60,
+        )
+        # Reload config after sync
+        global config
+        config = load_config()
+        # Count models
+        total = len(config.models)
+        return {
+            "ok": True,
+            "output": result.stdout[-500:] if result.stdout else "",
+            "new_models": 0,  # sync_providers.py handles counting
+            "providers": len(config.provider_keys),
+            "total_models": total,
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Sync failed: {e}")
 
 
 @app.get("/api/auto-update")

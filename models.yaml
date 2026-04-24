@@ -1,223 +1,1421 @@
 # Free LLM Gateway — Model definitions with provider fallback chains
-# Only providers with API keys configured will be tried.
-# Models are ordered: primary first, fallbacks after.
+# Auto-synced from awesome-free-llm-apis. Manual edits preserved.
+# Last sync: 2026-04-24T11:27:22.141552
 
 models:
-  # ── Meta Llama ────────────────────────────────────────────────────────────
   llama-3.3-70b:
     capabilities:
       supports_tools: true
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: meta-llama/llama-3.3-70b-instruct:free
-      - provider: nvidia
-        model: meta/llama-3.1-405b-instruct
-
+    - provider: openrouter
+      model: meta-llama/llama-3.3-70b-instruct:free
+    - provider: nvidia
+      model: meta/llama-3.1-405b-instruct
   llama-3.1-8b:
     capabilities:
       supports_tools: true
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: nvidia
-        model: meta/llama-3.1-8b-instruct
-      - provider: openrouter
-        model: meta-llama/llama-3.2-3b-instruct:free
-
-  # ── Google Gemma ──────────────────────────────────────────────────────────
+    - provider: nvidia
+      model: meta/llama-3.1-8b-instruct
+    - provider: openrouter
+      model: meta-llama/llama-3.2-3b-instruct:free
   gemma-4-31b:
     capabilities:
       supports_tools: true
       supports_vision: true
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: google/gemma-4-31b-it:free
-      - provider: nvidia
-        model: google/gemma-4-31b-it
-
+    - provider: openrouter
+      model: google/gemma-4-31b-it:free
+    - provider: nvidia
+      model: google/gemma-4-31b-it
   gemma-4-26b:
     capabilities:
       supports_tools: true
       supports_vision: true
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: google/gemma-4-26b-a4b-it:free
-      - provider: nvidia
-        model: google/gemma-4-31b-it
-
+    - provider: openrouter
+      model: google/gemma-4-26b-a4b-it:free
+    - provider: nvidia
+      model: google/gemma-4-31b-it
   gemma-3-27b:
     capabilities:
       supports_tools: false
       supports_vision: true
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: google/gemma-3-27b-it:free
-
+    - provider: openrouter
+      model: google/gemma-3-27b-it:free
   gemma-3-12b:
     capabilities:
       supports_tools: false
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: google/gemma-3-12b-it:free
-
+    - provider: openrouter
+      model: google/gemma-3-12b-it:free
   gemma-3-4b:
     capabilities:
       supports_tools: false
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: google/gemma-3-4b-it:free
-
-  # ── NVIDIA Nemotron ───────────────────────────────────────────────────────
+    - provider: openrouter
+      model: google/gemma-3-4b-it:free
   nemotron-super-120b:
     capabilities:
       supports_tools: true
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: nvidia/nemotron-3-super-120b-a12b:free
-      - provider: nvidia
-        model: nvidia/nemotron-3-super-120b-a12b
-
+    - provider: openrouter
+      model: nvidia/nemotron-3-super-120b-a12b:free
+    - provider: nvidia
+      model: nvidia/nemotron-3-super-120b-a12b
   nemotron-nano-30b:
     capabilities:
       supports_tools: false
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: nvidia/nemotron-3-nano-30b-a3b:free
-      - provider: nvidia
-        model: nvidia/nemotron-3-nano-30b-a3b
-
-  # ── OpenAI GPT-OSS ───────────────────────────────────────────────────────
+    - provider: openrouter
+      model: nvidia/nemotron-3-nano-30b-a3b:free
+    - provider: nvidia
+      model: nvidia/nemotron-3-nano-30b-a3b
   gpt-oss-120b:
     capabilities:
       supports_tools: true
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: openai/gpt-oss-120b:free
-
+    - provider: openrouter
+      model: openai/gpt-oss-120b:free
+    - provider: cerebras
+      model: gpt-oss-120b
+    - provider: groq
+      model: gpt-oss-120b
   gpt-oss-20b:
     capabilities:
       supports_tools: true
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: openai/gpt-oss-20b:free
-
-  # ── Qwen ──────────────────────────────────────────────────────────────────
+    - provider: openrouter
+      model: openai/gpt-oss-20b:free
   qwen3-coder:
     capabilities:
       supports_tools: true
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: qwen/qwen3-coder:free
-      - provider: nvidia
-        model: qwen/qwen2.5-72b-instruct
-
+    - provider: openrouter
+      model: qwen/qwen3-coder:free
+    - provider: nvidia
+      model: qwen/qwen2.5-72b-instruct
   qwen3-next-80b:
     capabilities:
       supports_tools: true
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: qwen/qwen3-next-80b-a3b-instruct:free
-
-  # ── MiniMax ───────────────────────────────────────────────────────────────
+    - provider: openrouter
+      model: qwen/qwen3-next-80b-a3b-instruct:free
   minimax-m2.5:
     capabilities:
       supports_tools: true
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: minimax/minimax-m2.5:free
-      - provider: nvidia
-        model: minimax/minimax-m2.7
-
-  # ── DeepSeek (paid on OpenRouter, try NVIDIA free) ────────────────────────
+    - provider: openrouter
+      model: minimax/minimax-m2.5:free
+    - provider: nvidia
+      model: minimax/minimax-m2.7
   deepseek-r1:
     capabilities:
       supports_tools: true
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: deepseek/deepseek-r1-0528
-      - provider: nvidia
-        model: deepseek-ai/deepseek-v3.2
-
-  # ── GLM ───────────────────────────────────────────────────────────────────
+    - provider: openrouter
+      model: deepseek/deepseek-r1-0528
+    - provider: nvidia
+      model: deepseek-ai/deepseek-v3.2
   glm-4.5-air:
     capabilities:
       supports_tools: false
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: z-ai/glm-4.5-air:free
-
-  # ── Hermes / Nous ─────────────────────────────────────────────────────────
+    - provider: openrouter
+      model: z-ai/glm-4.5-air:free
   hermes-3-405b:
     capabilities:
       supports_tools: true
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: nousresearch/hermes-3-llama-3.1-405b:free
-
-  # ── Mistral (via NVIDIA) ──────────────────────────────────────────────────
+    - provider: openrouter
+      model: nousresearch/hermes-3-llama-3.1-405b:free
   mistral-large:
     capabilities:
       supports_tools: true
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: nvidia
-        model: mistralai/mistral-large-2-instruct
-
-  # ── Specialty ─────────────────────────────────────────────────────────────
+    - provider: nvidia
+      model: mistralai/mistral-large-2-instruct
   ling-2.6-flash:
     capabilities:
       supports_tools: false
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: inclusionai/ling-2.6-flash:free
-
+    - provider: openrouter
+      model: inclusionai/ling-2.6-flash:free
   dolphin-mistral-24b:
     capabilities:
       supports_tools: true
       supports_vision: false
       supports_streaming: true
     fallbacks:
-      - provider: openrouter
-        model: cognitivecomputations/dolphin-mistral-24b-venice-edition:free
-
-  # ── Embedding models ──────────────────────────────────────────────────────
+    - provider: openrouter
+      model: cognitivecomputations/dolphin-mistral-24b-venice-edition:free
   text-embedding-3-small:
     capabilities:
       supports_tools: false
       supports_vision: false
       supports_streaming: false
     fallbacks:
-      - provider: nvidia
-        model: nvidia/llama-3.1-nemotron-ultra-253b-v1
+    - provider: nvidia
+      model: nvidia/llama-3.1-nemotron-ultra-253b-v1
+  command-a-03-2025:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: cohere
+      model: command-a-03-2025
+    _meta:
+      name: Command A (111B)
+      context: 256K
+      modality: Text
+      rate_limit: 20 RPM
+  command-r-plus-08-2024:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: cohere
+      model: command-r-plus-08-2024
+    _meta:
+      name: Command R+
+      context: 128K
+      modality: Text
+      rate_limit: 20 RPM
+  command-r-08-2024:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: cohere
+      model: command-r-08-2024
+    _meta:
+      name: Command R
+      context: 128K
+      modality: Text
+      rate_limit: 20 RPM
+  command-r7b-12-2024:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: cohere
+      model: command-r7b-12-2024
+    _meta:
+      name: Command R7B
+      context: 128K
+      modality: Text
+      rate_limit: 20 RPM
+  gemini-2.5-flash:
+    capabilities:
+      supports_tools: true
+      supports_vision: true
+      supports_streaming: true
+    fallbacks:
+    - provider: google_gemini
+      model: gemini-2.5-flash
+    _meta:
+      name: Gemini 2.5 Flash
+      context: 1M
+      modality: Text + Image + Audio + Video
+      rate_limit: 10 RPM, 250 RPD
+  gemini-2.5-flash-lite:
+    capabilities:
+      supports_tools: true
+      supports_vision: true
+      supports_streaming: true
+    fallbacks:
+    - provider: google_gemini
+      model: gemini-2.5-flash-lite
+    - provider: llm7.io
+      model: gemini-2.5-flash-lite
+    _meta:
+      name: Gemini 2.5 Flash-Lite
+      context: 1M
+      modality: Text + Image + Audio + Video
+      rate_limit: 15 RPM, 1,000 RPD
+  mistral-small-2603:
+    capabilities:
+      supports_tools: true
+      supports_vision: true
+      supports_streaming: true
+    fallbacks:
+    - provider: mistral
+      model: mistral-small-2603
+    _meta:
+      name: Mistral Small 4
+      context: 256K
+      modality: Text + Image + Code
+      rate_limit: ~1 RPS, 500K TPM
+  mistral-medium-2505:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: mistral
+      model: mistral-medium-2505
+    _meta:
+      name: Mistral Medium 3
+      context: 128K
+      modality: Text
+      rate_limit: ~1 RPS, 500K TPM
+  mistral-large-2411:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: mistral
+      model: mistral-large-2411
+    _meta:
+      name: Mistral Large 3
+      context: 256K
+      modality: Text
+      rate_limit: ~1 RPS, 500K TPM
+  open-mistral-nemo:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: mistral
+      model: open-mistral-nemo
+    _meta:
+      name: Mistral Nemo (12B)
+      context: 128K
+      modality: Text
+      rate_limit: ~1 RPS, 500K TPM
+  codestral-2501:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: mistral
+      model: codestral-2501
+    _meta:
+      name: Codestral
+      context: 256K
+      modality: Code
+      rate_limit: ~1 RPS, 500K TPM
+  pixtral-large-2411:
+    capabilities:
+      supports_tools: true
+      supports_vision: true
+      supports_streaming: true
+    fallbacks:
+    - provider: mistral
+      model: pixtral-large-2411
+    _meta:
+      name: Pixtral Large
+      context: 128K
+      modality: Text + Image
+      rate_limit: ~1 RPS, 500K TPM
+  glm-4.7-flash:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: z_ai_zhipu_ai
+      model: glm-4.7-flash
+    _meta:
+      name: GLM-4.7-Flash
+      context: 200K
+      modality: Text
+      rate_limit: 1 concurrent request
+  glm-4.5-flash:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: z_ai_zhipu_ai
+      model: glm-4.5-flash
+    _meta:
+      name: GLM-4.5-Flash
+      context: 128K
+      modality: Text
+      rate_limit: 1 concurrent request
+  glm-4.6v-flash:
+    capabilities:
+      supports_tools: true
+      supports_vision: true
+      supports_streaming: true
+    fallbacks:
+    - provider: z_ai_zhipu_ai
+      model: glm-4.6v-flash
+    _meta:
+      name: GLM-4.6V-Flash
+      context: 128K
+      modality: Text + Image
+      rate_limit: 1 concurrent request
+  llama3.1-8b:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: cerebras
+      model: llama3.1-8b
+    _meta:
+      name: llama3.1-8b
+      context: 128K (8K on free)
+      modality: Text
+      rate_limit: 30 RPM, 14,400 RPD, 1M TPD
+  qwen-3-235b-a22b-instruct-2507:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: cerebras
+      model: qwen-3-235b-a22b-instruct-2507
+    _meta:
+      name: qwen-3-235b-a22b-instruct-2507
+      context: 131K (8K on free)
+      modality: Text
+      rate_limit: 30 RPM, 14,400 RPD, 1M TPD
+  zai-glm-4.7:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: cerebras
+      model: zai-glm-4.7
+    _meta:
+      name: zai-glm-4.7
+      context: 128K (8K on free)
+      modality: Text
+      rate_limit: 10 RPM, 100 RPD, 1M TPD
+  '@cf/meta/llama-3.3-70b-instruct-fp8-fast':
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: cloudflare
+      model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
+    _meta:
+      name: '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
+      context: 131K
+      modality: Text
+      rate_limit: 10K neurons/day (shared)
+  '@cf/meta/llama-3.1-8b-instruct-fp8-fast':
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: cloudflare
+      model: '@cf/meta/llama-3.1-8b-instruct-fp8-fast'
+    _meta:
+      name: '@cf/meta/llama-3.1-8b-instruct-fp8-fast'
+      context: 131K
+      modality: Text
+      rate_limit: 10K neurons/day (shared)
+  '@cf/meta/llama-3.2-11b-vision-instruct':
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: cloudflare
+      model: '@cf/meta/llama-3.2-11b-vision-instruct'
+    _meta:
+      name: '@cf/meta/llama-3.2-11b-vision-instruct'
+      context: 131K
+      modality: Text + Vision
+      rate_limit: 10K neurons/day (shared)
+  '@cf/meta/llama-4-scout-17b-16e-instruct':
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: cloudflare
+      model: '@cf/meta/llama-4-scout-17b-16e-instruct'
+    _meta:
+      name: '@cf/meta/llama-4-scout-17b-16e-instruct'
+      context: Up to 10M
+      modality: Multimodal
+      rate_limit: 10K neurons/day (shared)
+  '@cf/mistralai/mistral-small-3.1-24b-instruct':
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: cloudflare
+      model: '@cf/mistralai/mistral-small-3.1-24b-instruct'
+    _meta:
+      name: '@cf/mistralai/mistral-small-3.1-24b-instruct'
+      context: 128K
+      modality: Text
+      rate_limit: 10K neurons/day (shared)
+  '@cf/google/gemma-4-26b-a4b-it':
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: cloudflare
+      model: '@cf/google/gemma-4-26b-a4b-it'
+    _meta:
+      name: '@cf/google/gemma-4-26b-a4b-it'
+      context: 256K
+      modality: Text
+      rate_limit: 10K neurons/day (shared)
+  '@cf/qwen/qwq-32b':
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: cloudflare
+      model: '@cf/qwen/qwq-32b'
+    _meta:
+      name: '@cf/qwen/qwq-32b'
+      context: 32K
+      modality: Text
+      rate_limit: 10K neurons/day (shared)
+  '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b':
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: cloudflare
+      model: '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b'
+    _meta:
+      name: '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b'
+      context: 32K
+      modality: Text
+      rate_limit: 10K neurons/day (shared)
+  gpt-4.1:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: github
+      model: gpt-4.1
+    _meta:
+      name: gpt-4.1
+      context: 1M
+      modality: Text
+      rate_limit: 10 RPM, 50 RPD
+  gpt-4.1-mini:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: github
+      model: gpt-4.1-mini
+    _meta:
+      name: gpt-4.1-mini
+      context: 1M
+      modality: Text
+      rate_limit: 15 RPM, 150 RPD
+  gpt-4o:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: github
+      model: gpt-4o
+    _meta:
+      name: gpt-4o
+      context: 128K
+      modality: Text + Vision
+      rate_limit: 10 RPM, 50 RPD
+  o3-mini:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: github
+      model: o3-mini
+    _meta:
+      name: o3-mini
+      context: 200K
+      modality: Text (reasoning)
+      rate_limit: 10 RPM, 50 RPD
+  o4-mini:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: github
+      model: o4-mini
+    _meta:
+      name: o4-mini
+      context: 200K
+      modality: Text (reasoning)
+      rate_limit: 10 RPM, 50 RPD
+  Llama-4-Scout-17B-16E:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: github
+      model: Llama-4-Scout-17B-16E
+    _meta:
+      name: Llama-4-Scout-17B-16E
+      context: 512K
+      modality: Text + Vision
+      rate_limit: 15 RPM, 150 RPD
+  Llama-4-Maverick-17B-128E:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: github
+      model: Llama-4-Maverick-17B-128E
+    _meta:
+      name: Llama-4-Maverick-17B-128E
+      context: 256K
+      modality: Text + Vision
+      rate_limit: 10 RPM, 50 RPD
+  Meta-Llama-3.3-70B:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: github
+      model: Meta-Llama-3.3-70B
+    _meta:
+      name: Meta-Llama-3.3-70B
+      context: 131K
+      modality: Text
+      rate_limit: 15 RPM, 150 RPD
+  DeepSeek-R1:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: github
+      model: DeepSeek-R1
+    _meta:
+      name: DeepSeek-R1
+      context: 64K
+      modality: Text (reasoning)
+      rate_limit: 15 RPM, 150 RPD
+  Mistral-Small-3.1:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: github
+      model: Mistral-Small-3.1
+    _meta:
+      name: Mistral-Small-3.1
+      context: 128K
+      modality: Text + Vision
+      rate_limit: 15 RPM, 150 RPD
+  llama-3.3-70b-versatile:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: groq
+      model: llama-3.3-70b-versatile
+    _meta:
+      name: llama-3.3-70b-versatile
+      context: 131K
+      modality: Text
+      rate_limit: 30 RPM, 14,400 RPD
+  llama-3.1-8b-instant:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: groq
+      model: llama-3.1-8b-instant
+    _meta:
+      name: llama-3.1-8b-instant
+      context: 131K
+      modality: Text
+      rate_limit: 30 RPM, 14,400 RPD
+  llama-4-scout-17b-16e-instruct:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: groq
+      model: llama-4-scout-17b-16e-instruct
+    _meta:
+      name: llama-4-scout-17b-16e-instruct
+      context: 131K
+      modality: Text + Vision
+      rate_limit: 30 RPM, 14,400 RPD
+  llama-4-maverick-17b-128e-instruct:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: groq
+      model: llama-4-maverick-17b-128e-instruct
+    _meta:
+      name: llama-4-maverick-17b-128e-instruct
+      context: 131K
+      modality: Text + Vision
+      rate_limit: 15 RPM, 500 RPD
+  qwen3-32b:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: groq
+      model: qwen3-32b
+    _meta:
+      name: qwen3-32b
+      context: 131K
+      modality: Text
+      rate_limit: 30 RPM, 14,400 RPD
+  kimi-k2-instruct:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: groq
+      model: kimi-k2-instruct
+    _meta:
+      name: kimi-k2-instruct
+      context: 262K
+      modality: Text
+      rate_limit: 30 RPM, 14,400 RPD
+  deepseek-r1-distill-70b:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: groq
+      model: deepseek-r1-distill-70b
+    _meta:
+      name: deepseek-r1-distill-70b
+      context: 131K
+      modality: Text
+      rate_limit: 30 RPM, 14,400 RPD
+  whisper-large-v3:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: groq
+      model: whisper-large-v3
+    _meta:
+      name: whisper-large-v3
+      context: —
+      modality: Audio → Text
+      rate_limit: 20 RPM, 2,000 RPD
+  whisper-large-v3-turbo:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: groq
+      model: whisper-large-v3-turbo
+    _meta:
+      name: whisper-large-v3-turbo
+      context: —
+      modality: Audio → Text
+      rate_limit: 20 RPM, 2,000 RPD
+  meta-llama/Meta-Llama-3.1-8B-Instruct:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: huggingface
+      model: meta-llama/Meta-Llama-3.1-8B-Instruct
+    _meta:
+      name: Meta-Llama-3.1-8B-Instruct
+      context: 128K
+      modality: Text
+      rate_limit: ~1,000 RPD
+  mistralai/Mistral-7B-Instruct-v0.3:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: huggingface
+      model: mistralai/Mistral-7B-Instruct-v0.3
+    _meta:
+      name: Mistral-7B-Instruct-v0.3
+      context: 32K
+      modality: Text
+      rate_limit: ~1,000 RPD
+  mistralai/Mixtral-8x7B-Instruct-v0.1:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: huggingface
+      model: mistralai/Mixtral-8x7B-Instruct-v0.1
+    _meta:
+      name: Mixtral-8x7B-Instruct-v0.1
+      context: 32K
+      modality: Text
+      rate_limit: ~1,000 RPD
+  microsoft/Phi-3.5-mini-instruct:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: huggingface
+      model: microsoft/Phi-3.5-mini-instruct
+    _meta:
+      name: Phi-3.5-mini-instruct
+      context: 128K
+      modality: Text
+      rate_limit: ~1,000 RPD
+  Qwen/Qwen2.5-7B-Instruct:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: huggingface
+      model: Qwen/Qwen2.5-7B-Instruct
+    _meta:
+      name: Qwen2.5-7B-Instruct
+      context: 131K
+      modality: Text
+      rate_limit: ~1,000 RPD
+  bytedance-seed/dola-seed-2.0-pro:free:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: kilo_code
+      model: bytedance-seed/dola-seed-2.0-pro:free
+    _meta:
+      name: bytedance-seed/dola-seed-2.0-pro:free
+      context: —
+      modality: Text
+      rate_limit: ~200 req/hr
+  x-ai/grok-code-fast-1:optimized:free:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: kilo_code
+      model: x-ai/grok-code-fast-1:optimized:free
+    _meta:
+      name: x-ai/grok-code-fast-1:optimized:free
+      context: —
+      modality: Text (code)
+      rate_limit: ~200 req/hr
+  nvidia/nemotron-3-super-120b-a12b:free:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: kilo_code
+      model: nvidia/nemotron-3-super-120b-a12b:free
+    - provider: openrouter
+      model: nvidia/nemotron-3-super-120b-a12b:free
+    _meta:
+      name: nvidia/nemotron-3-super-120b-a12b:free
+      context: 262K
+      modality: Text
+      rate_limit: ~200 req/hr
+  arcee-ai/trinity-large-thinking:free:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: kilo_code
+      model: arcee-ai/trinity-large-thinking:free
+    _meta:
+      name: arcee-ai/trinity-large-thinking:free
+      context: —
+      modality: Text (reasoning)
+      rate_limit: ~200 req/hr
+  openrouter/free:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: kilo_code
+      model: openrouter/free
+    _meta:
+      name: openrouter/free
+      context: Varies
+      modality: Text
+      rate_limit: ~200 req/hr
+  deepseek-r1-0528:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: llm7.io
+      model: deepseek-r1-0528
+    _meta:
+      name: deepseek-r1-0528
+      context: —
+      modality: Text (reasoning)
+      rate_limit: 30 RPM (120 with token)
+  deepseek-v3-0324:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: llm7.io
+      model: deepseek-v3-0324
+    _meta:
+      name: deepseek-v3-0324
+      context: —
+      modality: Text
+      rate_limit: 30 RPM (120 with token)
+  gpt-4o-mini:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: llm7.io
+      model: gpt-4o-mini
+    _meta:
+      name: gpt-4o-mini
+      context: —
+      modality: Text + Vision
+      rate_limit: 30 RPM (120 with token)
+  mistral-small-3.1-24b:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: llm7.io
+      model: mistral-small-3.1-24b
+    _meta:
+      name: mistral-small-3.1-24b
+      context: 32K
+      modality: Text
+      rate_limit: 30 RPM (120 with token)
+  qwen2.5-coder-32b:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: llm7.io
+      model: qwen2.5-coder-32b
+    _meta:
+      name: qwen2.5-coder-32b
+      context: —
+      modality: Text (code)
+      rate_limit: 30 RPM (120 with token)
+  Qwen/Qwen3.5-35B-A3B:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: modelscope
+      model: Qwen/Qwen3.5-35B-A3B
+    _meta:
+      name: Qwen/Qwen3.5-35B-A3B
+      context: —
+      modality: Text + Vision
+      rate_limit: 2,000 RPD total; <=500 RPD/model (dynamic)
+  Qwen/Qwen3.5-27B:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: modelscope
+      model: Qwen/Qwen3.5-27B
+    _meta:
+      name: Qwen/Qwen3.5-27B
+      context: —
+      modality: Text
+      rate_limit: 2,000 RPD total; <=500 RPD/model (dynamic)
+  deepseek-ai/deepseek-r1:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: nvidia_nim
+      model: deepseek-ai/deepseek-r1
+    _meta:
+      name: deepseek-ai/deepseek-r1
+      context: 128K
+      modality: Text (reasoning)
+      rate_limit: ~40 RPM
+  nvidia/llama-3.1-nemotron-ultra-253b-v1:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: nvidia_nim
+      model: nvidia/llama-3.1-nemotron-ultra-253b-v1
+    _meta:
+      name: nvidia/llama-3.1-nemotron-ultra-253b-v1
+      context: 128K
+      modality: Text
+      rate_limit: ~40 RPM
+  nvidia/nemotron-3-super-120b-a12b:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: nvidia_nim
+      model: nvidia/nemotron-3-super-120b-a12b
+    _meta:
+      name: nvidia/nemotron-3-super-120b-a12b
+      context: 262K
+      modality: Text
+      rate_limit: ~40 RPM
+  nvidia/nemotron-3-nano-30b-a3b:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: nvidia_nim
+      model: nvidia/nemotron-3-nano-30b-a3b
+    _meta:
+      name: nvidia/nemotron-3-nano-30b-a3b
+      context: 128K
+      modality: Text
+      rate_limit: ~40 RPM
+  meta/llama-3.1-405b-instruct:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: nvidia_nim
+      model: meta/llama-3.1-405b-instruct
+    _meta:
+      name: meta/llama-3.1-405b-instruct
+      context: 128K
+      modality: Text
+      rate_limit: ~40 RPM
+  qwen/qwen2.5-72b-instruct:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: nvidia_nim
+      model: qwen/qwen2.5-72b-instruct
+    _meta:
+      name: qwen/qwen2.5-72b-instruct
+      context: 128K
+      modality: Text
+      rate_limit: ~40 RPM
+  google/gemma-4-31b:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: nvidia_nim
+      model: google/gemma-4-31b
+    _meta:
+      name: google/gemma-4-31b
+      context: 128K
+      modality: Text
+      rate_limit: ~40 RPM
+  mistralai/mistral-large-2-instruct:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: nvidia_nim
+      model: mistralai/mistral-large-2-instruct
+    _meta:
+      name: mistralai/mistral-large-2-instruct
+      context: 128K
+      modality: Text
+      rate_limit: ~40 RPM
+  nvidia/nemotron-nano-2-vl:
+    capabilities:
+      supports_tools: true
+      supports_vision: true
+      supports_streaming: true
+    fallbacks:
+    - provider: nvidia_nim
+      model: nvidia/nemotron-nano-2-vl
+    _meta:
+      name: nvidia/nemotron-nano-2-vl
+      context: 128K
+      modality: Vision + Text + Video
+      rate_limit: ~40 RPM
+  minimax/minimax-m2.7:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: nvidia_nim
+      model: minimax/minimax-m2.7
+    _meta:
+      name: minimax/minimax-m2.7
+      context: 128K
+      modality: Text
+      rate_limit: ~40 RPM
+  llama3.1:cloud:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: ollama
+      model: llama3.1:cloud
+    _meta:
+      name: llama3.1:cloud
+      context: 128K
+      modality: Text
+      rate_limit: Session/weekly limits (unpublished)
+  deepseek-r1:cloud:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: ollama
+      model: deepseek-r1:cloud
+    _meta:
+      name: deepseek-r1:cloud
+      context: 128K
+      modality: Text (reasoning)
+      rate_limit: Session/weekly limits (unpublished)
+  qwen2.5:cloud:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: ollama
+      model: qwen2.5:cloud
+    _meta:
+      name: qwen2.5:cloud
+      context: 128K
+      modality: Text
+      rate_limit: Session/weekly limits (unpublished)
+  gemma2:cloud:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: ollama
+      model: gemma2:cloud
+    _meta:
+      name: gemma2:cloud
+      context: 8K
+      modality: Text
+      rate_limit: Session/weekly limits (unpublished)
+  mistral:cloud:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: ollama
+      model: mistral:cloud
+    _meta:
+      name: mistral:cloud
+      context: 32K
+      modality: Text
+      rate_limit: Session/weekly limits (unpublished)
+  deepseek/deepseek-r1-0528:free:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: openrouter
+      model: deepseek/deepseek-r1-0528:free
+    _meta:
+      name: deepseek/deepseek-r1-0528:free
+      context: 163K
+      modality: Text (reasoning)
+      rate_limit: 20 RPM, 200 RPD
+  deepseek/deepseek-chat-v3-0324:free:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: openrouter
+      model: deepseek/deepseek-chat-v3-0324:free
+    _meta:
+      name: deepseek/deepseek-chat-v3-0324:free
+      context: 163K
+      modality: Text
+      rate_limit: 20 RPM, 200 RPD
+  qwen/qwen3.6-plus:free:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: openrouter
+      model: qwen/qwen3.6-plus:free
+    _meta:
+      name: qwen/qwen3.6-plus:free
+      context: 1M
+      modality: Text
+      rate_limit: 20 RPM, 200 RPD
+  qwen/qwen3-coder-480b-a35b:free:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: openrouter
+      model: qwen/qwen3-coder-480b-a35b:free
+    _meta:
+      name: qwen/qwen3-coder-480b-a35b:free
+      context: 262K
+      modality: Text
+      rate_limit: 20 RPM, 200 RPD
+  meta-llama/llama-4-scout:free:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: openrouter
+      model: meta-llama/llama-4-scout:free
+    _meta:
+      name: meta-llama/llama-4-scout:free
+      context: 10M
+      modality: Multimodal
+      rate_limit: 20 RPM, 200 RPD
+  meta-llama/llama-4-maverick:free:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: openrouter
+      model: meta-llama/llama-4-maverick:free
+    _meta:
+      name: meta-llama/llama-4-maverick:free
+      context: 1M
+      modality: Multimodal
+      rate_limit: 20 RPM, 200 RPD
+  meta-llama/llama-3.3-70b-instruct:free:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: openrouter
+      model: meta-llama/llama-3.3-70b-instruct:free
+    _meta:
+      name: meta-llama/llama-3.3-70b-instruct:free
+      context: 65K
+      modality: Text
+      rate_limit: 20 RPM, 200 RPD
+  google/gemma-4-31b-it:free:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: openrouter
+      model: google/gemma-4-31b-it:free
+    _meta:
+      name: google/gemma-4-31b-it:free
+      context: 256K
+      modality: Multimodal
+      rate_limit: 20 RPM, 200 RPD
+  openai/gpt-oss-120b:free:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: openrouter
+      model: openai/gpt-oss-120b:free
+    _meta:
+      name: openai/gpt-oss-120b:free
+      context: 131K
+      modality: Text
+      rate_limit: 20 RPM, 200 RPD
+  minimax/minimax-m2.5:free:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: openrouter
+      model: minimax/minimax-m2.5:free
+    _meta:
+      name: minimax/minimax-m2.5:free
+      context: 196K
+      modality: Text
+      rate_limit: 20 RPM, 200 RPD
+  mistralai/devstral-2512:free:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: openrouter
+      model: mistralai/devstral-2512:free
+    _meta:
+      name: mistralai/devstral-2512:free
+      context: 256K
+      modality: Text
+      rate_limit: 20 RPM, 200 RPD
+  Qwen/Qwen3-8B:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: siliconflow
+      model: Qwen/Qwen3-8B
+    _meta:
+      name: Qwen/Qwen3-8B
+      context: 131K
+      modality: Text
+      rate_limit: 1,000 RPM, 50K TPM
+  deepseek-ai/DeepSeek-R1-0528-Qwen3-8B:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: siliconflow
+      model: deepseek-ai/DeepSeek-R1-0528-Qwen3-8B
+    _meta:
+      name: deepseek-ai/DeepSeek-R1-0528-Qwen3-8B
+      context: ~33K
+      modality: Text (reasoning)
+      rate_limit: 1,000 RPM, 50K TPM
+  deepseek-ai/DeepSeek-R1-Distill-Qwen-7B:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: siliconflow
+      model: deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+    _meta:
+      name: deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+      context: 131K
+      modality: Text (reasoning)
+      rate_limit: 1,000 RPM, 50K TPM
+  THUDM/glm-4-9b-chat:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: siliconflow
+      model: THUDM/glm-4-9b-chat
+    _meta:
+      name: THUDM/glm-4-9b-chat
+      context: 32K
+      modality: Text
+      rate_limit: 1,000 RPM, 50K TPM
+  THUDM/GLM-4.1V-9B-Thinking:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: siliconflow
+      model: THUDM/GLM-4.1V-9B-Thinking
+    _meta:
+      name: THUDM/GLM-4.1V-9B-Thinking
+      context: 66K
+      modality: Vision + Text
+      rate_limit: 1,000 RPM, 50K TPM
+  deepseek-ai/DeepSeek-OCR:
+    capabilities:
+      supports_tools: true
+      supports_vision: false
+      supports_streaming: true
+    fallbacks:
+    - provider: siliconflow
+      model: deepseek-ai/DeepSeek-OCR
+    _meta:
+      name: deepseek-ai/DeepSeek-OCR
+      context: —
+      modality: Vision (OCR)
+      rate_limit: 1,000 RPM, 50K TPM

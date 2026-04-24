@@ -1,0 +1,31 @@
+{
+  "last_sync": "2026-04-24T11:27:22.190954",
+  "upstream_date": "2026-04-20",
+  "providers_known": [
+    "cohere",
+    "google_gemini",
+    "mistral",
+    "z_ai_zhipu_ai",
+    "cerebras",
+    "cloudflare",
+    "github",
+    "groq",
+    "huggingface",
+    "kilo_code",
+    "llm7.io",
+    "modelscope",
+    "nvidia_nim",
+    "ollama",
+    "openrouter",
+    "siliconflow"
+  ],
+  "sync_log": [
+    {
+      "date": "2026-04-24T11:27:22.188843",
+      "upstream_date": "2026-04-20",
+      "new_models": 94,
+      "updated_models": 4,
+      "total_models": 115
+    }
+  ]
+}
