@@ -12,6 +12,7 @@
     setupNavigation();
     setupMobileMenu();
     setupKeyForm();
+    setupBenchmarkBtn();
     loadStatus();
     startAutoRefresh();
   });
@@ -33,9 +34,14 @@
     document.querySelectorAll('.tab-panel').forEach(function(el) {
       el.classList.toggle('active', el.id === 'tab-' + tab);
     });
-    // Re-render setup tab when switched to
     if (tab === 'setup' && _connInfo) {
       renderSetup(_connInfo);
+    }
+    if (tab === 'benchmarks') {
+      loadBenchmarks();
+    }
+    if (tab === 'analytics') {
+      loadAnalytics();
     }
   }
 
@@ -68,11 +74,6 @@
       var resp = await fetch('/api/status');
       if (!resp.ok) return;
       cachedStatus = await resp.json();
-      // Also fetch analytics
-      try {
-        var aResp = await fetch('/api/analytics', { headers: { 'Authorization': 'Bearer ' + cachedStatus.master_key } });
-        if (aResp.ok) cachedStatus.analytics = await aResp.json();
-      } catch(e) {}
       renderAll(cachedStatus);
       updateLiveDot(true);
     } catch(e) {
@@ -93,9 +94,7 @@
     renderUsage(data);
     renderCacheQueue(data);
     renderLogs(data.logs || []);
-    renderAnalytics(data);
     loadKeys();
-    // Re-render setup on every refresh if we have the data
     if (_connInfo) renderSetup(_connInfo);
     loadConnectionInfo();
   }
@@ -183,6 +182,28 @@
     var health = data.health || {};
     var provInfo = data.providers || {};
 
+    // Health summary at top
+    var validCount = 0;
+    var totalCount = known.length;
+    known.forEach(function(name) {
+      var pi = provInfo[name] || {};
+      if (pi.has_key) validCount++;
+    });
+    var summaryDiv = document.createElement('div');
+    summaryDiv.className = 'provider-health-summary';
+    summaryDiv.style.cssText = 'background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px';
+    var sdot = document.createElement('span');
+    sdot.className = 'status-dot ' + (validCount > 0 ? 'ok' : 'off');
+    summaryDiv.appendChild(sdot);
+    var stxt = document.createElement('span');
+    stxt.style.cssText = 'font-size:14px;color:#c9d1d9';
+    var sstrong = document.createElement('strong');
+    sstrong.textContent = validCount + '/' + totalCount;
+    stxt.appendChild(sstrong);
+    stxt.appendChild(document.createTextNode(' providers have API keys configured'));
+    summaryDiv.appendChild(stxt);
+    grid.appendChild(summaryDiv);
+
     known.forEach(function(name) {
       var info = rl[name];
       var h = health[name] || {};
@@ -213,7 +234,6 @@
       var meta = document.createElement('div');
       meta.className = 'card-meta';
 
-      // Health info
       if (h.latency_ms) {
         var latLine = document.createElement('div');
         latLine.textContent = 'Latency: ' + Math.round(h.latency_ms) + 'ms';
@@ -221,7 +241,6 @@
         meta.appendChild(latLine);
       }
 
-      // Rate limits
       if (info) {
         var rlLine = document.createElement('div');
         rlLine.textContent = 'RPM: ' + info.rpm_used + '/' + (info.rpm_limit > 0 ? info.rpm_limit : '\u221E') +
@@ -229,7 +248,6 @@
         meta.appendChild(rlLine);
       }
 
-      // Key info
       var keyLine = document.createElement('div');
       var totalKeys = pi.total_keys || 0;
       var hasKey = pi.has_key || false;
@@ -511,87 +529,256 @@
   }
 
   // ── Analytics Tab ──────────────────────────────────────────────
-  function renderAnalytics(data) {
-    var container = document.getElementById('analytics-content');
-    if (!container) return;
-    var analytics = data.analytics || {};
-    var summary = analytics.summary || {};
-    var savings = analytics.savings || {};
-    var topModels = analytics.top_models || [];
-    var providers = analytics.providers || [];
-    var dailyHistory = analytics.daily_history || [];
+  async function loadAnalytics() {
+    var summaryEl = document.getElementById('analytics-summary');
+    if (!summaryEl) return;
+    try {
+      var resp = await fetch('/api/analytics');
+      if (!resp.ok) return;
+      var data = await resp.json();
+      renderAnalytics(data);
+    } catch(e) { console.error('loadAnalytics error:', e); }
+  }
 
-    container.innerHTML = '';
+  function renderAnalytics(data) {
+    var summary = data.summary || {};
+    var savings = data.savings || {};
+    var topModels = data.top_models || [];
+    var providers = data.providers || [];
+    var dailyHistory = data.daily_history || [];
 
     // Summary cards
-    var cards = document.createElement('div');
-    cards.className = 'analytics-cards';
-    cards.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px';
-    cards.innerHTML =
-      '<div class="stat-card" style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;text-align:center"><div style="font-size:24px;font-weight:700;color:#e6edf3">' + formatNumber(summary.total_requests || 0) + '</div><div style="font-size:12px;color:#8b949e;margin-top:4px">Total Requests</div></div>' +
-      '<div class="stat-card" style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;text-align:center"><div style="font-size:24px;font-weight:700;color:#e6edf3">' + formatNumber(summary.total_tokens || 0) + '</div><div style="font-size:12px;color:#8b949e;margin-top:4px">Total Tokens</div></div>' +
-      '<div class="stat-card" style="background:#0d1f0d;border:1px solid #238636;border-radius:8px;padding:16px;text-align:center"><div style="font-size:24px;font-weight:700;color:#3fb950">$' + (savings.all_time_usd || 0).toFixed(2) + '</div><div style="font-size:12px;color:#8b949e;margin-top:4px">Est. Savings</div></div>' +
-      '<div class="stat-card" style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;text-align:center"><div style="font-size:24px;font-weight:700;color:#58a6ff">' + formatNumber(summary.today_requests || 0) + '</div><div style="font-size:12px;color:#8b949e;margin-top:4px">Today</div></div>';
-    container.appendChild(cards);
-
-    // Top models table
-    if (topModels.length) {
-      var title = document.createElement('h3');
-      title.textContent = 'Most Used Models';
-      title.style.cssText = 'color:#e6edf3;margin:20px 0 8px;font-size:14px';
-      container.appendChild(title);
-      var table = document.createElement('table');
-      table.className = 'data-table';
-      table.innerHTML = '<thead><tr><th>Model</th><th>Requests</th><th>Tokens</th></tr></thead>';
-      var tbody = document.createElement('tbody');
-      topModels.forEach(function(m) {
-        var tr = document.createElement('tr');
-        tr.innerHTML = '<td style="color:#58a6ff">' + escapeHtml(m.model) + '</td><td>' + formatNumber(m.requests) + '</td><td>' + formatNumber(m.tokens) + '</td>';
-        tbody.appendChild(tr);
+    var summaryEl = document.getElementById('analytics-summary');
+    if (summaryEl) {
+      clearEl(summaryEl);
+      var items = [
+        { label: 'Total Requests', value: formatNumber(summary.total_requests || 0) },
+        { label: 'Total Tokens', value: formatNumber(summary.total_tokens || 0) },
+        { label: 'Est. Savings', value: '$' + (savings.all_time_usd || 0).toFixed(2), cls: 'savings' },
+        { label: 'Today Requests', value: formatNumber(summary.today_requests || 0) },
+      ];
+      items.forEach(function(item) {
+        var card = document.createElement('div');
+        card.className = 'stat-card';
+        var lbl = document.createElement('div');
+        lbl.className = 'label';
+        lbl.textContent = item.label;
+        card.appendChild(lbl);
+        var val = document.createElement('div');
+        val.className = 'value' + (item.cls ? ' ' + item.cls : '');
+        val.style.fontSize = '20px';
+        val.textContent = item.value;
+        card.appendChild(val);
+        summaryEl.appendChild(card);
       });
-      table.appendChild(tbody);
-      container.appendChild(table);
     }
 
-    // Provider stats
-    if (providers.length) {
-      var ptitle = document.createElement('h3');
-      ptitle.textContent = 'Provider Performance';
-      ptitle.style.cssText = 'color:#e6edf3;margin:20px 0 8px;font-size:14px';
-      container.appendChild(ptitle);
-      var ptable = document.createElement('table');
-      ptable.className = 'data-table';
-      ptable.innerHTML = '<thead><tr><th>Provider</th><th>Requests</th><th>Tokens</th><th>Success Rate</th></tr></thead>';
-      var ptbody = document.createElement('tbody');
-      providers.forEach(function(p) {
-        var rate = p.success_rate !== undefined ? p.success_rate + '%' : '—';
-        var rateColor = p.success_rate >= 90 ? '#3fb950' : p.success_rate >= 50 ? '#d29922' : '#f85149';
-        var tr = document.createElement('tr');
-        tr.innerHTML = '<td>' + escapeHtml(p.provider) + '</td><td>' + formatNumber(p.requests) + '</td><td>' + formatNumber(p.tokens) + '</td><td style="color:' + rateColor + ';font-weight:600">' + rate + '</td>';
-        ptbody.appendChild(tr);
-      });
-      ptable.appendChild(ptbody);
-      container.appendChild(ptable);
+    // Top models bar chart
+    var topModelsEl = document.getElementById('analytics-top-models');
+    if (topModelsEl) {
+      clearEl(topModelsEl);
+      if (topModels.length) {
+        var maxReq = topModels[0].requests || 1;
+        topModels.forEach(function(m) {
+          var row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px';
+          var name = document.createElement('span');
+          name.style.cssText = 'width:120px;font-size:12px;color:#8b949e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+          name.textContent = m.model;
+          name.title = m.model;
+          row.appendChild(name);
+          var bar = document.createElement('div');
+          bar.style.cssText = 'flex:1;height:18px;background:#0d1117;border-radius:3px;overflow:hidden';
+          var fill = document.createElement('div');
+          fill.style.cssText = 'height:100%;background:#58a6ff;border-radius:3px;width:' + ((m.requests / maxReq) * 100) + '%';
+          bar.appendChild(fill);
+          row.appendChild(bar);
+          var count = document.createElement('span');
+          count.style.cssText = 'font-size:12px;color:#c9d1d9;min-width:40px;text-align:right';
+          count.textContent = formatNumber(m.requests);
+          row.appendChild(count);
+          topModelsEl.appendChild(row);
+        });
+      } else {
+        topModelsEl.appendChild(makeEmptyEl('No data yet'));
+      }
     }
 
-    // Daily bar chart
-    if (dailyHistory.length > 1) {
-      var ctitle = document.createElement('h3');
-      ctitle.textContent = 'Daily Requests';
-      ctitle.style.cssText = 'color:#e6edf3;margin:20px 0 8px;font-size:14px';
-      container.appendChild(ctitle);
-      var chart = document.createElement('div');
-      chart.style.cssText = 'display:flex;align-items:flex-end;gap:2px;height:100px;padding:8px 0';
-      var maxReq = Math.max.apply(null, dailyHistory.map(function(d) { return d.requests || 0; })) || 1;
-      dailyHistory.slice().reverse().forEach(function(d) {
-        var pct = ((d.requests || 0) / maxReq * 100);
-        var bar = document.createElement('div');
-        bar.style.cssText = 'flex:1;min-width:6px;background:linear-gradient(to top,#238636,#2ea043);border-radius:2px 2px 0 0;height:' + Math.max(pct, 2) + '%;cursor:pointer';
-        bar.title = d.date + ': ' + (d.requests || 0) + ' requests';
-        chart.appendChild(bar);
-      });
-      container.appendChild(chart);
+    // Provider success rates
+    var provRatesEl = document.getElementById('analytics-provider-rates');
+    if (provRatesEl) {
+      clearEl(provRatesEl);
+      if (providers.length) {
+        providers.forEach(function(p) {
+          var row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px';
+          var name = document.createElement('span');
+          name.style.cssText = 'width:100px;font-size:12px;color:#8b949e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+          name.textContent = p.provider;
+          name.title = p.provider;
+          row.appendChild(name);
+          var bar = document.createElement('div');
+          bar.style.cssText = 'flex:1;height:18px;background:#0d1117;border-radius:3px;overflow:hidden';
+          var fill = document.createElement('div');
+          var rate = p.success_rate !== undefined ? p.success_rate : 0;
+          var rateColor = rate >= 90 ? '#3fb950' : rate >= 50 ? '#d29922' : '#f85149';
+          fill.style.cssText = 'height:100%;background:' + rateColor + ';border-radius:3px;width:' + rate + '%';
+          bar.appendChild(fill);
+          row.appendChild(bar);
+          var lbl = document.createElement('span');
+          lbl.style.cssText = 'font-size:12px;min-width:40px;text-align:right;color:' + rateColor;
+          lbl.textContent = rate + '%';
+          row.appendChild(lbl);
+          provRatesEl.appendChild(row);
+        });
+      } else {
+        provRatesEl.appendChild(makeEmptyEl('No data yet'));
+      }
     }
+
+    // Savings / daily chart
+    var savingsEl = document.getElementById('analytics-savings');
+    if (savingsEl) {
+      clearEl(savingsEl);
+      if (dailyHistory.length > 1) {
+        var chart = document.createElement('div');
+        chart.style.cssText = 'display:flex;align-items:flex-end;gap:2px;height:100px;padding:8px 0';
+        var maxR = Math.max.apply(null, dailyHistory.map(function(d) { return d.requests || 0; })) || 1;
+        dailyHistory.slice().reverse().forEach(function(d) {
+          var pct = ((d.requests || 0) / maxR * 100);
+          var bar = document.createElement('div');
+          bar.style.cssText = 'flex:1;min-width:6px;background:linear-gradient(to top,#238636,#2ea043);border-radius:2px 2px 0 0;height:' + Math.max(pct, 2) + '%;cursor:pointer';
+          bar.title = d.date + ': ' + (d.requests || 0) + ' requests';
+          chart.appendChild(bar);
+        });
+        savingsEl.appendChild(chart);
+      } else {
+        savingsEl.appendChild(makeEmptyEl('Savings accumulate as you use the gateway'));
+      }
+    }
+  }
+
+  // ── Benchmarks Tab ────────────────────────────────────────────
+  function setupBenchmarkBtn() {
+    var btn = document.getElementById('run-benchmark-btn');
+    if (!btn) return;
+    btn.addEventListener('click', async function() {
+      btn.disabled = true;
+      btn.textContent = 'Running...';
+      var statusEl = document.getElementById('benchmark-status');
+      if (statusEl) {
+        clearEl(statusEl);
+        statusEl.appendChild(makeTag('Benchmarks running...', 'tag-yellow'));
+      }
+      try {
+        var resp = await fetch('/api/benchmarks/run');
+        if (resp.ok) {
+          var result = await resp.json();
+          if (statusEl) {
+            clearEl(statusEl);
+            statusEl.appendChild(makeTag('Benchmarks complete! ' + (result.results || []).length + ' models tested', 'tag-green'));
+          }
+          loadBenchmarks();
+        } else {
+          if (statusEl) {
+            clearEl(statusEl);
+            statusEl.appendChild(makeTag('Benchmark failed', 'tag-red'));
+          }
+        }
+      } catch(e) {
+        var statusEl2 = document.getElementById('benchmark-status');
+        if (statusEl2) {
+          clearEl(statusEl2);
+          statusEl2.appendChild(makeTag('Error: ' + e.message, 'tag-red'));
+        }
+      }
+      btn.disabled = false;
+      btn.textContent = 'Run Benchmarks';
+    });
+  }
+
+  async function loadBenchmarks() {
+    var tbody = document.getElementById('benchmarks-tbody');
+    if (!tbody) return;
+    try {
+      var resp = await fetch('/api/benchmarks');
+      if (!resp.ok) return;
+      var data = await resp.json();
+      renderBenchmarks(data);
+    } catch(e) { console.error('loadBenchmarks error:', e); }
+  }
+
+  function renderBenchmarks(data) {
+    var tbody = document.getElementById('benchmarks-tbody');
+    if (!tbody) return;
+    clearEl(tbody);
+
+    var results = data.results || [];
+    if (!results.length) {
+      addEmptyRow(tbody, 7, 'No benchmarks yet. Click "Run Benchmarks" to start.');
+      return;
+    }
+
+    // Sort by latency (fastest first)
+    var sorted = results.filter(function(r) { return r.success; })
+      .sort(function(a, b) { return (a.latency_ms || 99999) - (b.latency_ms || 99999); });
+
+    sorted.forEach(function(r, idx) {
+      var tr = document.createElement('tr');
+
+      // Rank with medal
+      var rankTd = document.createElement('td');
+      if (idx === 0) {
+        var medal = document.createElement('span');
+        medal.className = 'medal medal-gold';
+        medal.textContent = '1';
+        rankTd.appendChild(medal);
+      } else if (idx === 1) {
+        var medal = document.createElement('span');
+        medal.className = 'medal medal-silver';
+        medal.textContent = '2';
+        rankTd.appendChild(medal);
+      } else if (idx === 2) {
+        var medal = document.createElement('span');
+        medal.className = 'medal medal-bronze';
+        medal.textContent = '3';
+        rankTd.appendChild(medal);
+      } else {
+        rankTd.textContent = idx + 1;
+      }
+      tr.appendChild(rankTd);
+
+      appendCodeCell(tr, r.model);
+      appendCell(tr, r.provider || '-');
+      appendCell(tr, r.latency_ms ? Math.round(r.latency_ms) + 'ms' : '-');
+      appendCell(tr, r.ttft_ms !== undefined ? Math.round(r.ttft_ms) + 'ms' : '-');
+      appendCell(tr, r.tokens_per_second ? r.tokens_per_second.toFixed(1) : '-');
+
+      var statusTd = document.createElement('td');
+      statusTd.appendChild(makeTag('OK', 'tag-green'));
+      tr.appendChild(statusTd);
+
+      tbody.appendChild(tr);
+    });
+
+    // Add failed entries
+    results.filter(function(r) { return !r.success; }).forEach(function(r) {
+      var tr = document.createElement('tr');
+      var rankTd = document.createElement('td');
+      rankTd.textContent = '-';
+      tr.appendChild(rankTd);
+      appendCodeCell(tr, r.model);
+      appendCell(tr, r.provider || '-');
+      appendCell(tr, '-');
+      appendCell(tr, '-');
+      appendCell(tr, '-');
+      var statusTd = document.createElement('td');
+      var tag = makeTag('FAIL', 'tag-red');
+      if (r.error) tag.title = r.error;
+      statusTd.appendChild(tag);
+      tr.appendChild(statusTd);
+      tbody.appendChild(tr);
+    });
   }
 
   // ── Keys Tab ─────────────────────────────────────────────────
@@ -639,7 +826,7 @@
         btn.id = 'validate-all-btn';
         btn.className = 'btn btn-primary';
         btn.style.cssText = 'margin-bottom:16px';
-        btn.textContent = '✅ Validate All Keys';
+        btn.textContent = 'Validate All Provider Keys';
         btn.addEventListener('click', async function() {
           btn.disabled = true;
           btn.textContent = 'Validating...';
@@ -647,13 +834,13 @@
             var resp = await fetch('/api/keys/validate-all', { method: 'POST' });
             if (resp.ok) {
               var result = await resp.json();
-              var s = result.summary;
-              alert('Validation complete!\nValid: ' + s.valid + '\nInvalid: ' + s.invalid + '\nRate limited: ' + s.rate_limited + '\nNo key: ' + s.no_key + '\nError: ' + s.error);
+              var s = result.summary || result;
+              alert('Validation complete!\nValid: ' + (s.valid || 0) + '\nInvalid: ' + (s.invalid || 0) + '\nRate limited: ' + (s.rate_limited || 0) + '\nNo key: ' + (s.no_key || 0));
               loadKeys();
             }
           } catch(e) { alert('Error: ' + e.message); }
           btn.disabled = false;
-          btn.textContent = '✅ Validate All Keys';
+          btn.textContent = 'Validate All Provider Keys';
         });
         keysTab.insertBefore(btn, keysTab.firstChild);
       }
@@ -666,10 +853,7 @@
     clearEl(container);
     var names = Object.keys(keys);
     if (!names.length) {
-      var empty = document.createElement('div');
-      empty.className = 'empty';
-      empty.textContent = 'No API keys stored. Add one above.';
-      container.appendChild(empty);
+      container.appendChild(makeEmptyEl('No API keys stored. Add one above.'));
       return;
     }
     names.forEach(function(provider) {
@@ -694,13 +878,11 @@
         val.textContent = entry.key_masked;
         row.appendChild(val);
 
-        // Source badge
         var src = document.createElement('span');
         src.className = 'key-source';
         src.appendChild(makeTag(entry.source === 'env' ? '.env' : 'Runtime', entry.source === 'env' ? 'tag-blue' : 'tag-green'));
         row.appendChild(src);
 
-        // Validation status
         var st = document.createElement('span');
         st.className = 'key-status';
         var validLabel = 'Unknown';
@@ -718,7 +900,6 @@
         validateBtn.addEventListener('click', function() { validateKey(this.dataset.provider, parseInt(this.dataset.index)); });
         row.appendChild(validateBtn);
 
-        // Only show remove for deletable (runtime) keys
         if (entry.deletable) {
           var delBtn = document.createElement('button');
           delBtn.className = 'btn btn-sm btn-danger';
@@ -750,47 +931,6 @@
       alert(result.valid ? 'Key is valid!' : 'Validation failed: ' + (result.error || 'Unknown error'));
       loadKeys();
     } catch(e) { alert('Error: ' + e.message); }
-  }
-
-  // ── DOM Helpers ──────────────────────────────────────────────
-  function makeTag(text, cls) {
-    var el = document.createElement('span');
-    el.className = 'tag ' + cls;
-    el.textContent = text;
-    return el;
-  }
-
-  function setText(id, val) {
-    var el = document.getElementById(id);
-    if (el) el.textContent = val;
-  }
-
-  function clearEl(el) {
-    while (el.firstChild) el.removeChild(el.firstChild);
-  }
-
-  function appendCell(tr, text) {
-    var td = document.createElement('td');
-    td.textContent = text;
-    tr.appendChild(td);
-  }
-
-  function appendCodeCell(tr, text) {
-    var td = document.createElement('td');
-    var code = document.createElement('code');
-    code.textContent = text;
-    td.appendChild(code);
-    tr.appendChild(td);
-  }
-
-  function addEmptyRow(tbody, colspan, text) {
-    var tr = document.createElement('tr');
-    var td = document.createElement('td');
-    td.colSpan = colspan;
-    td.className = 'empty';
-    td.textContent = text;
-    tr.appendChild(td);
-    tbody.appendChild(tr);
   }
 
   // ── Setup Tab ──────────────────────────────────────────────────
@@ -881,6 +1021,58 @@
 
     container.appendChild(infoGrid);
 
+    // Smart Defaults section
+    var defaultsTitle = document.createElement('h3');
+    defaultsTitle.className = 'setup-section-title';
+    defaultsTitle.textContent = 'Smart Default Models';
+    container.appendChild(defaultsTitle);
+
+    var defaultsDesc = document.createElement('p');
+    defaultsDesc.style.cssText = 'color:#8b949e;font-size:13px;margin-bottom:12px';
+    defaultsDesc.textContent = 'Recommended models by task type based on benchmarks and capabilities.';
+    container.appendChild(defaultsDesc);
+
+    var defaultsGrid = document.createElement('div');
+    defaultsGrid.id = 'smart-defaults-grid';
+    defaultsGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:24px';
+    defaultsGrid.appendChild(makeEmptyEl('Loading smart defaults...'));
+    container.appendChild(defaultsGrid);
+
+    loadSmartDefaults();
+
+    // Export Config section
+    var exportTitle = document.createElement('h3');
+    exportTitle.className = 'setup-section-title';
+    exportTitle.textContent = 'Export Config for Tools';
+    container.appendChild(exportTitle);
+
+    var exportRow = document.createElement('div');
+    exportRow.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:16px';
+    var exportSelect = document.createElement('select');
+    exportSelect.id = 'export-tool-select';
+    exportSelect.style.cssText = 'background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:8px 12px;border-radius:6px;font-size:13px;min-width:200px';
+    var defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = 'Loading tools...';
+    exportSelect.appendChild(defaultOpt);
+    exportRow.appendChild(exportSelect);
+
+    var exportBtn = document.createElement('button');
+    exportBtn.className = 'btn btn-primary';
+    exportBtn.textContent = 'Export';
+    exportBtn.addEventListener('click', function() {
+      var sel = document.getElementById('export-tool-select');
+      if (sel && sel.value) loadExportConfig(sel.value);
+    });
+    exportRow.appendChild(exportBtn);
+    container.appendChild(exportRow);
+
+    var exportOutput = document.createElement('div');
+    exportOutput.id = 'export-output';
+    container.appendChild(exportOutput);
+
+    loadExportTools();
+
     // Config snippets
     var snippetsTitle = document.createElement('h3');
     snippetsTitle.className = 'setup-section-title';
@@ -900,21 +1092,11 @@
       },
       {
         title: 'OpenClaw Config',
-        code: JSON.stringify({
-          api_key: apiKey,
-          base_url: info.base_url,
-          default_model: defaultModel,
-          models: info.top_models || []
-        }, null, 2)
+        code: JSON.stringify({ api_key: apiKey, base_url: info.base_url, default_model: defaultModel, models: info.top_models || [] }, null, 2)
       },
       {
         title: 'Hermes Config',
-        code: JSON.stringify({
-          openai_api_key: apiKey,
-          openai_base_url: info.base_url,
-          model: defaultModel,
-          available_models: info.top_models || []
-        }, null, 2)
+        code: JSON.stringify({ openai_api_key: apiKey, openai_base_url: info.base_url, model: defaultModel, available_models: info.top_models || [] }, null, 2)
       },
       {
         title: '.env File',
@@ -967,13 +1149,12 @@
 
     var updateInfo = document.createElement('p');
     updateInfo.style.cssText = 'color:#8b949e;font-size:13px;margin-bottom:12px;line-height:1.6';
-    updateInfo.innerHTML = 'Providers add new free models regularly. Click the button below to re-scan all providers for new models. ' +
-      'You can also run <code style="background:#0d1117;padding:2px 6px;border-radius:3px">python3 auto_update.py</code> from the terminal.';
+    updateInfo.textContent = 'Providers add new free models regularly. Click the button below to re-scan all providers for new models.';
     container.appendChild(updateInfo);
 
     var updateBtn = document.createElement('button');
     updateBtn.className = 'btn btn-primary';
-    updateBtn.textContent = '🔄 Scan for New Models';
+    updateBtn.textContent = 'Scan for New Models';
     updateBtn.style.marginRight = '8px';
     updateBtn.addEventListener('click', async function() {
       updateBtn.disabled = true;
@@ -997,19 +1178,19 @@
         alert('Error: ' + e.message);
       }
       updateBtn.disabled = false;
-      updateBtn.textContent = '🔄 Scan for New Models';
+      updateBtn.textContent = 'Scan for New Models';
     });
     container.appendChild(updateBtn);
 
     // Sync from awesome-free-llm-apis
     var syncInfo = document.createElement('p');
     syncInfo.style.cssText = 'color:#8b949e;font-size:13px;margin:16px 0 8px;line-height:1.6';
-    syncInfo.innerHTML = 'Sync from <a href="https://github.com/mnfst/awesome-free-llm-apis" target="_blank" style="color:#58a6ff">awesome-free-llm-apis</a> to get new providers and models.';
+    syncInfo.textContent = 'Sync from awesome-free-llm-apis to get new providers and models.';
     container.appendChild(syncInfo);
 
     var syncBtn = document.createElement('button');
     syncBtn.className = 'btn btn-secondary';
-    syncBtn.textContent = '🌐 Sync Providers from Upstream';
+    syncBtn.textContent = 'Sync Providers from Upstream';
     syncBtn.addEventListener('click', async function() {
       syncBtn.disabled = true;
       syncBtn.textContent = 'Syncing...';
@@ -1030,9 +1211,149 @@
         alert('Error: ' + e.message);
       }
       syncBtn.disabled = false;
-      syncBtn.textContent = '🌐 Sync Providers from Upstream';
+      syncBtn.textContent = 'Sync Providers from Upstream';
     });
     container.appendChild(syncBtn);
+  }
+
+  // ── Smart Defaults ──────────────────────────────────────────
+  async function loadSmartDefaults() {
+    var grid = document.getElementById('smart-defaults-grid');
+    if (!grid) return;
+    try {
+      var resp = await fetch('/api/smart-default/all');
+      if (!resp.ok) { grid.textContent = 'Could not load defaults'; return; }
+      var data = await resp.json();
+      clearEl(grid);
+      var tasks = ['chat', 'code', 'reasoning', 'fast', 'creative', 'vision'];
+      tasks.forEach(function(task) {
+        var d = data[task] || {};
+        var card = document.createElement('div');
+        card.className = 'stat-card';
+        card.style.cssText = 'background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px';
+        var lbl = document.createElement('div');
+        lbl.className = 'label';
+        lbl.textContent = task.charAt(0).toUpperCase() + task.slice(1);
+        card.appendChild(lbl);
+        var val = document.createElement('div');
+        val.style.cssText = 'font-size:14px;font-weight:600;color:#58a6ff;margin-top:4px';
+        val.textContent = d.model || '-';
+        card.appendChild(val);
+        var reason = document.createElement('div');
+        reason.style.cssText = 'font-size:11px;color:#8b949e;margin-top:2px';
+        reason.textContent = d.reason || '';
+        card.appendChild(reason);
+        grid.appendChild(card);
+      });
+    } catch(e) {
+      grid.textContent = 'Error loading defaults';
+    }
+  }
+
+  // ── Export Config ───────────────────────────────────────────
+  async function loadExportTools() {
+    var select = document.getElementById('export-tool-select');
+    if (!select) return;
+    try {
+      var resp = await fetch('/api/config/export/tools');
+      if (!resp.ok) return;
+      var data = await resp.json();
+      var tools = data.tools || [];
+      clearEl(select);
+      var defOpt = document.createElement('option');
+      defOpt.value = '';
+      defOpt.textContent = 'Select a tool...';
+      select.appendChild(defOpt);
+      tools.forEach(function(t) {
+        var opt = document.createElement('option');
+        opt.value = (typeof t === 'object') ? t.id : t;
+        opt.textContent = (typeof t === 'object') ? t.name : t;
+        select.appendChild(opt);
+      });
+    } catch(e) {
+      var select2 = document.getElementById('export-tool-select');
+      if (select2) select2.textContent = 'Error loading tools';
+    }
+  }
+
+  async function loadExportConfig(tool) {
+    var output = document.getElementById('export-output');
+    if (!output) return;
+    clearEl(output);
+    output.appendChild(makeEmptyEl('Loading config...'));
+    try {
+      var resp = await fetch('/api/config/export?tool=' + encodeURIComponent(tool));
+      if (!resp.ok) { clearEl(output); output.appendChild(makeEmptyEl('Failed to load config')); return; }
+      var data = await resp.json();
+      clearEl(output);
+      var wrap = document.createElement('div');
+      wrap.className = 'snippet-card';
+      var hdr = document.createElement('div');
+      hdr.className = 'snippet-header';
+      var title = document.createElement('span');
+      title.textContent = tool + ' Configuration';
+      hdr.appendChild(title);
+      hdr.appendChild(makeCopyBtn(JSON.stringify(data, null, 2)));
+      wrap.appendChild(hdr);
+      var pre = document.createElement('pre');
+      pre.className = 'snippet-code';
+      var code = document.createElement('code');
+      code.textContent = JSON.stringify(data, null, 2);
+      pre.appendChild(code);
+      wrap.appendChild(pre);
+      output.appendChild(wrap);
+    } catch(e) {
+      clearEl(output);
+      output.appendChild(makeEmptyEl('Error: ' + e.message));
+    }
+  }
+
+  // ── DOM Helpers ──────────────────────────────────────────────
+  function makeTag(text, cls) {
+    var el = document.createElement('span');
+    el.className = 'tag ' + cls;
+    el.textContent = text;
+    return el;
+  }
+
+  function makeEmptyEl(text) {
+    var el = document.createElement('div');
+    el.className = 'empty';
+    el.textContent = text;
+    return el;
+  }
+
+  function setText(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = val;
+  }
+
+  function clearEl(el) {
+    while (el.firstChild) el.removeChild(el.firstChild);
+  }
+
+  function appendCell(tr, text) {
+    var td = document.createElement('td');
+    td.textContent = text;
+    tr.appendChild(td);
+  }
+
+  function appendCodeCell(tr, text) {
+    var td = document.createElement('td');
+    var code = document.createElement('code');
+    code.textContent = text;
+    td.appendChild(code);
+    tr.appendChild(td);
+  }
+
+  function addEmptyRow(tbody, colspan, text) {
+    var tr = document.createElement('tr');
+    var td = document.createElement('td');
+    td.colSpan = colspan;
+    td.className = 'empty';
+    td.textContent = text;
+    tr.appendChild(td);
+    tbody.appendChild(tr);
   }
 
   function makeCopyBtn(text) {
@@ -1046,6 +1367,11 @@
       });
     });
     return btn;
+  }
+
+  function formatNumber(n) {
+    if (n === undefined || n === null) return '0';
+    return Number(n).toLocaleString();
   }
 
   window.switchTab = switchTab;

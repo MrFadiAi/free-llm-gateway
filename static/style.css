@@ -150,3 +150,9 @@ tr:hover{background:#1c2129}
 .btn-copy:hover{background:#30363d}
 .setup-model-list{display:flex;flex-wrap:wrap;gap:8px}
 .key-source{display:flex;align-items:center;margin-right:4px}
+
+/* ── Medal Badges ──────────────────────────────────────────────── */
+.medal{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;font-size:13px;font-weight:700;color:#fff}
+.medal-gold{background:linear-gradient(135deg,#ffd700,#ffb800);box-shadow:0 0 6px #ffd70080}
+.medal-silver{background:linear-gradient(135deg,#c0c0c0,#a0a0a0);box-shadow:0 0 6px #c0c0c080}
+.medal-bronze{background:linear-gradient(135deg,#cd7f32,#a0522d);box-shadow:0 0 6px #cd7f3280}

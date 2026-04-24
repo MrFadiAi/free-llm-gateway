@@ -26,6 +26,7 @@ from providers import has_tool_calling
 from request_queue import RequestQueue, request_queue, BLOCKING_QUEUE
 from rate_limiter import RateLimiter
 from router import Router, AllRateLimitedError
+from benchmark import BenchmarkRunner
 from smart_default import SmartDefault
 from smart_router import SmartRouter
 from tracking import UsageTracker, usage_tracker
@@ -44,8 +45,9 @@ router = Router(config, rate_limiter, health_checker)
 templates = Jinja2Templates(directory="templates")
 key_manager = KeyManager(config.master_key or "default-key")
 smart_router = SmartRouter(config.models)
+benchmark_runner = BenchmarkRunner(config)
 # Smart router for model aliases
-smart_default = SmartDefault(config.models, {})
+smart_default = SmartDefault(config.models, benchmark_runner.get_results())
 
 # Shared httpx client (reused across requests for connection pooling)
 _client: httpx.AsyncClient | None = None
@@ -724,6 +726,21 @@ async def api_smart_default(task: str = "chat", authorization: str | None = Head
 async def api_smart_default_all(authorization: str | None = Header(None)):
     verify_master_key(authorization)
     return smart_default.get_all_defaults()
+
+
+# ── Benchmark API ────────────────────────────────────────────────────────────
+@app.get("/api/benchmarks")
+async def api_benchmarks():
+    return benchmark_runner.get_results()
+
+
+@app.get("/api/benchmarks/run")
+async def api_benchmarks_run():
+    if benchmark_runner.is_running():
+        return {"status": "already_running"}
+    results = await benchmark_runner.run_all()
+    smart_default.update_benchmarks(results)
+    return results
 
 
 # ── Analytics API ────────────────────────────────────────────────────────────
