@@ -231,6 +231,10 @@ async def discover_models(
             if not model_id or model_id in existing_names:
                 continue
 
+            # Filter: only include free models per provider
+            if not _is_free_model(name, model_id, m):
+                continue
+
             # Create a unified model name: provider/model-id
             unified = model_id
             fb = ModelFallback(provider=name, model=model_id)
@@ -251,6 +255,54 @@ async def discover_models(
         sum(1 for p in config.providers.values() if p.api_key),
     )
     return discovered
+
+
+def _is_free_model(provider: str, model_id: str, model_data: dict) -> bool:
+    """Check if a model is available on a free tier.
+    
+    Rules per provider:
+    - OpenRouter: must have ':free' suffix
+    - NVIDIA: all models free (free developer tier)
+    - Groq: all models free (free tier)
+    - Cerebras: all models free (free tier)
+    - GitHub Models: all models free (free tier)
+    - Mistral: check pricing field or skip (experiment plan)
+    - Cohere: trial plan (1000 calls/month)
+    - Google Gemini: free tier models only
+    - Others: include by default
+    """
+    # OpenRouter: only free models have ':free' suffix
+    if provider == "openrouter":
+        return model_id.endswith(":free")
+    
+    # These providers offer all listed models on free tiers
+    FREE_PROVIDERS = {"nvidia", "groq", "cerebras", "github", "llm7", "ollama"}
+    if provider in FREE_PROVIDERS:
+        return True
+    
+    # Mistral: experiment plan includes these models
+    if provider == "mistral":
+        return True  # All listed on /v1/models are on experiment plan
+    
+    # Cohere: trial key gives 1000 calls/month
+    if provider == "cohere":
+        return True
+    
+    # Google Gemini: Flash/Lite models are free, Pro may have limits
+    if provider == "google_gemini":
+        model_name = model_id.lower()
+        return "flash" in model_name or "lite" in model_name or "pro" in model_name
+    
+    # SiliconFlow: permanently free models
+    if provider == "siliconflow":
+        return True  # Free models listed on their free tier
+    
+    # Cloudflare Workers AI: all free tier
+    if provider == "cloudflare":
+        return True
+    
+    # Default: include
+    return True
 
 
 async def _fetch_provider_models(

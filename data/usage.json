@@ -1,10 +1,10 @@
 {
   "daily": {
     "2026-04-24": {
-      "requests": 8,
-      "prompt_tokens": 247,
-      "completion_tokens": 110,
-      "total_tokens": 357,
+      "requests": 9,
+      "prompt_tokens": 264,
+      "completion_tokens": 120,
+      "total_tokens": 384,
       "by_provider": {
         "nvidia": {
           "requests": 6,
@@ -13,10 +13,10 @@
           "total_tokens": 258
         },
         "openrouter": {
-          "requests": 2,
-          "prompt_tokens": 29,
-          "completion_tokens": 70,
-          "total_tokens": 99
+          "requests": 3,
+          "prompt_tokens": 46,
+          "completion_tokens": 80,
+          "total_tokens": 126
         }
       },
       "by_model": {
@@ -33,10 +33,10 @@
           "total_tokens": 61
         },
         "nemotron-super-120b": {
-          "requests": 1,
-          "prompt_tokens": 18,
-          "completion_tokens": 20,
-          "total_tokens": 38
+          "requests": 2,
+          "prompt_tokens": 35,
+          "completion_tokens": 30,
+          "total_tokens": 65
         },
         "gemma-4-31b": {
           "requests": 1,
@@ -48,9 +48,9 @@
     }
   },
   "total": {
-    "requests": 8,
-    "prompt_tokens": 247,
-    "completion_tokens": 110,
-    "total_tokens": 357
+    "requests": 9,
+    "prompt_tokens": 264,
+    "completion_tokens": 120,
+    "total_tokens": 384
   }
 }
