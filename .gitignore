@@ -3,4 +3,3 @@ __pycache__/
 *.pyc
 .venv/
 .omc/
-/benchmark.py

@@ -30,6 +30,8 @@ from smart_router import SmartRouter
 from smart_default import SmartDefault
 from smart_router import SmartRouter
 from tracking import UsageTracker, usage_tracker
+from provider_guides import get_all_guides, get_guide
+from benchmark import BenchmarkRunner
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,7 +47,8 @@ router = Router(config, rate_limiter, health_checker)
 templates = Jinja2Templates(directory="templates")
 key_manager = KeyManager(config.master_key or "default-key")
 smart_router = SmartRouter(config.models)
-benchmark_results = {}
+benchmark_runner = BenchmarkRunner(config)
+benchmark_results = benchmark_runner.get_results()
 # Smart router for model aliases
 smart_default = SmartDefault(config.models, benchmark_results)
 
@@ -758,12 +761,31 @@ async def api_smart_default_all(authorization: str | None = Header(None)):
 # ── Benchmark API ────────────────────────────────────────────────────────────
 @app.get("/api/benchmarks")
 async def api_benchmarks():
-    return benchmark_results
+    return benchmark_runner.get_results()
 
 
 @app.get("/api/benchmarks/run")
-async def api_benchmarks_run():
-    return {"status": "not_implemented", "message": "Benchmarking not available"}
+async def api_benchmarks_run(authorization: str | None = Header(None)):
+    verify_master_key(authorization)
+    if benchmark_runner.is_running():
+        return {"status": "already_running", "message": "Benchmarks already in progress"}
+    if not _client:
+        raise HTTPException(503, "Server not ready")
+    asyncio.create_task(_async_benchmark_run())
+    return {"status": "started", "message": "Benchmark run started"}
+
+
+async def _async_benchmark_run() -> None:
+    global benchmark_results
+    try:
+        # Update results progressively
+        class LiveRunner:
+            pass
+        result = await benchmark_runner.run_all(_client)
+        benchmark_results = result
+        smart_default.update_benchmarks(result)
+    except Exception as e:
+        logger.warning("Benchmark run failed: %s", e)
 
 
 # ── Analytics API ────────────────────────────────────────────────────────────
@@ -1069,7 +1091,6 @@ async def api_config_export_tools():
     }
 
 
-from provider_guides import get_all_guides, get_guide
 
 
 @app.post("/v1/batch")
