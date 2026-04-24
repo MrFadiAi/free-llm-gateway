@@ -63,8 +63,26 @@ class BenchmarkRunner:
         try:
             results = []
             models = list(self._config.models.items())
+
+            # Only benchmark models from models.yaml (manually configured), not auto-discovered
+            yaml_models = set()
+            try:
+                import yaml
+                yaml_path = Path(__file__).parent / "models.yaml"
+                if yaml_path.exists():
+                    yaml_data = yaml.safe_load(yaml_path.read_text())
+                    yaml_models = set(yaml_data.get("models", {}).keys())
+            except Exception:
+                pass
+
+            if yaml_models:
+                models = [(k, v) for k, v in models if k in yaml_models]
+                logger.info("Benchmarking %d manually configured models (skipping %d auto-discovered)",
+                            len(models), len(self._config.models) - len(models))
+            else:
+                logger.info("Benchmarking %d models...", len(models))
+
             total = len(models)
-            logger.info("Benchmarking %d models...", total)
 
             for i, (model_name, model_cfg) in enumerate(models):
                 # Get fallbacks
@@ -84,6 +102,10 @@ class BenchmarkRunner:
 
                 provider = self._config.providers.get(provider_name)
                 if not provider or not provider.api_keys:
+                    continue
+
+                # Skip if provider base URL not configured
+                if not hasattr(provider, 'base_url') or not provider.base_url:
                     continue
 
                 api_key = provider.api_keys[0]
