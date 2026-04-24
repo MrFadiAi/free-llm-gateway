@@ -133,3 +133,20 @@ tr:hover{background:#1c2129}
 .stat-card .sub{font-size:12px;color:#8b949e;margin-top:2px}
 .stat-card .savings{color:#3fb950}
 .mini-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:16px}
+
+/* ── Setup Tab ─────────────────────────────────────────────────── */
+.setup-info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:24px}
+.setup-info-card{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:16px}
+.setup-label{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.setup-value-row{display:flex;align-items:center;gap:8px}
+.setup-value-row code{flex:1;font-size:13px;background:#0d1117;padding:6px 10px;border-radius:4px;display:block;word-break:break-all}
+.setup-key-input{flex:1;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:6px 10px;border-radius:4px;font-family:monospace;font-size:13px}
+.setup-section-title{font-size:16px;color:#f0f6fc;margin:24px 0 12px}
+.snippet-card{background:#161b22;border:1px solid #21262d;border-radius:8px;margin-bottom:12px;overflow:hidden}
+.snippet-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#1c2129;border-bottom:1px solid #21262d;font-size:13px;color:#8b949e;font-weight:600}
+.snippet-code{padding:14px;margin:0;overflow-x:auto;font-size:12px;line-height:1.5;background:#0d1117}
+.snippet-code code{background:none;padding:0}
+.btn-copy{background:#21262d;border-color:#30363d;color:#58a6ff}
+.btn-copy:hover{background:#30363d}
+.setup-model-list{display:flex;flex-wrap:wrap;gap:8px}
+.key-source{display:flex;align-items:center;margin-right:4px}

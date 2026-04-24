@@ -428,9 +428,37 @@ async def add_key(request: Request):
         raise HTTPException(400, "Missing 'provider' or 'key'")
     if provider not in PROVIDER_DEFS:
         raise HTTPException(400, f"Unknown provider: {provider}")
+
+    # Validate key against provider's /models endpoint
+    valid = False
+    validation_error = None
+    prov_def = PROVIDER_DEFS[provider]
+    base_url = prov_def[1]
+    if "{account_id}" in base_url:
+        base_url = base_url.replace(
+            "{account_id}", os.environ.get("CLOUDFLARE_ACCOUNT_ID", "")
+        )
+    test_url = f"{base_url}/models"
+    headers = {"Authorization": f"Bearer {key}"}
+    if provider == "openrouter":
+        headers["HTTP-Referer"] = "https://github.com/free-llm-gateway"
+        headers["X-Title"] = "Free LLM Gateway"
+    try:
+        if _client:
+            resp = await _client.get(test_url, headers=headers, timeout=15.0)
+            valid = resp.status_code < 400
+            if not valid:
+                validation_error = f"HTTP {resp.status_code}"
+    except Exception as e:
+        validation_error = str(e)[:200]
+
     index = key_manager.add_key(provider, key)
+    key_manager.set_validated(provider, index, valid)
     _sync_keys_to_config()
-    return {"ok": True, "provider": provider, "index": index}
+    return {
+        "ok": True, "provider": provider, "index": index,
+        "valid": valid, "validation_error": validation_error,
+    }
 
 
 @app.delete("/api/keys/{provider}/{index}")
@@ -443,7 +471,45 @@ async def remove_key(provider: str, index: int):
 
 @app.get("/api/keys")
 async def list_keys():
-    return {"keys": key_manager.list_keys()}
+    """List all keys: .env-sourced (read-only) + runtime-added (deletable)."""
+    runtime_keys = key_manager.list_keys()
+    # Build .env keys from config.providers
+    env_keys: dict[str, list[dict[str, Any]]] = {}
+    for name, prov in config.providers.items():
+        if prov.api_keys:
+            env_keys[name] = []
+            for i, key in enumerate(prov.api_keys):
+                masked = "****" + key[-4:] if len(key) > 4 else "****"
+                # Check if this key also exists in runtime keys
+                runtime_entries = runtime_keys.get(name, [])
+                is_runtime = any(
+                    e.get("key_masked") == masked for e in runtime_entries
+                )
+                if not is_runtime:
+                    env_keys[name].append({
+                        "index": i,
+                        "key_masked": masked,
+                        "source": "env",
+                        "validated": None,
+                        "deletable": False,
+                        "added_at": "",
+                    })
+
+    # Mark runtime keys with source
+    all_keys: dict[str, list[dict[str, Any]]] = {}
+    all_providers = set(list(runtime_keys.keys()) + list(env_keys.keys()))
+    for pname in all_providers:
+        entries = []
+        # .env keys first
+        for e in env_keys.get(pname, []):
+            entries.append(e)
+        # runtime keys
+        for e in runtime_keys.get(pname, []):
+            entry = {**e, "source": "runtime", "deletable": True}
+            entries.append(entry)
+        if entries:
+            all_keys[pname] = entries
+    return {"keys": all_keys}
 
 
 @app.post("/api/keys/{provider}/validate")
@@ -513,6 +579,98 @@ async def validate_key(provider: str, index: int):
     except Exception as e:
         key_manager.set_validated(provider, index, False)
         return {"valid": False, "error": str(e)[:200]}
+
+
+# ── Connection info & Config export ──────────────────────────────────────────
+TOP_RECOMMENDED_MODELS = [
+    "nemotron-super-120b", "llama-3.3-70b", "deepseek-r1",
+    "gemma-4-31b", "qwen3-coder", "mistral-large",
+    "gpt-oss-120b", "hermes-3-405b", "minimax-m2.5", "qwen3-next-80b",
+]
+
+
+def _get_base_url() -> str:
+    host = config.host if config.host != "0.0.0.0" else "localhost"
+    return f"http://{host}:{config.port}/v1"
+
+
+@app.get("/api/auto-update")
+async def api_auto_update(authorization: str | None = Header(None)):
+    """Trigger auto-update: re-discover models from all providers."""
+    verify_master_key(authorization)
+    if not _client:
+        raise HTTPException(503, "Server not ready")
+
+    old_count = len(config.models)
+    discovered = await discover_models(_client, config)
+    new_count = len(config.models)
+    added = new_count - old_count
+
+    return {
+        "ok": True,
+        "previous_model_count": old_count,
+        "current_model_count": new_count,
+        "new_models_discovered": added,
+        "discovered_models": list(discovered.keys())[:20] if discovered else [],
+    }
+
+
+@app.get("/api/connection-info")
+async def api_connection_info():
+    base_url = _get_base_url()
+    master_key = config.master_key or ""
+    masked = ""
+    if master_key:
+        masked = ("*" * max(0, len(master_key) - 4)) + master_key[-4:]
+    else:
+        masked = "(not set)"
+    available_top = [m for m in TOP_RECOMMENDED_MODELS if m in config.models][:10]
+    return {
+        "base_url": base_url,
+        "master_key": master_key,
+        "master_key_masked": masked,
+        "model_count": len(config.models),
+        "provider_count": sum(1 for p in config.providers.values() if p.api_keys),
+        "top_models": available_top,
+    }
+
+
+@app.get("/api/config/openclaw")
+async def config_openclaw(authorization: str | None = Header(None)):
+    verify_master_key(authorization)
+    base_url = _get_base_url()
+    available_top = [m for m in TOP_RECOMMENDED_MODELS if m in config.models][:10]
+    return {
+        "api_key": config.master_key or "",
+        "base_url": base_url,
+        "default_model": available_top[0] if available_top else "",
+        "models": available_top,
+    }
+
+
+@app.get("/api/config/hermes")
+async def config_hermes(authorization: str | None = Header(None)):
+    verify_master_key(authorization)
+    base_url = _get_base_url()
+    available_top = [m for m in TOP_RECOMMENDED_MODELS if m in config.models][:10]
+    return {
+        "openai_api_key": config.master_key or "",
+        "openai_base_url": base_url,
+        "model": available_top[0] if available_top else "",
+        "available_models": available_top,
+    }
+
+
+@app.get("/api/config/env")
+async def config_env(authorization: str | None = Header(None)):
+    verify_master_key(authorization)
+    base_url = _get_base_url()
+    lines = [
+        f"OPENAI_API_KEY={config.master_key or ''}",
+        f"OPENAI_BASE_URL={base_url}",
+        "DEFAULT_MODEL=nemotron-super-120b",
+    ]
+    return {"env_string": "\n".join(lines)}
 
 
 # ── Batch requests ────────────────────────────────────────────────────────────

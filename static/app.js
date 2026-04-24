@@ -33,6 +33,10 @@
     document.querySelectorAll('.tab-panel').forEach(function(el) {
       el.classList.toggle('active', el.id === 'tab-' + tab);
     });
+    // Re-render setup tab when switched to
+    if (tab === 'setup' && _connInfo) {
+      renderSetup(_connInfo);
+    }
   }
 
   // ── Mobile ───────────────────────────────────────────────────
@@ -85,6 +89,9 @@
     renderCacheQueue(data);
     renderLogs(data.logs || []);
     loadKeys();
+    // Re-render setup on every refresh if we have the data
+    if (_connInfo) renderSetup(_connInfo);
+    loadConnectionInfo();
   }
 
   function renderStats(data) {
@@ -513,7 +520,13 @@
           body: JSON.stringify({ provider: provider, key: key })
         });
         if (resp.ok) {
+          var result = await resp.json();
           document.getElementById('key-value').value = '';
+          if (result.valid) {
+            alert('Key added and validated successfully!');
+          } else {
+            alert('Key added but validation failed: ' + (result.validation_error || 'Could not verify'));
+          }
           loadKeys();
         } else {
           var result = await resp.json();
@@ -566,9 +579,20 @@
         val.textContent = entry.key_masked;
         row.appendChild(val);
 
+        // Source badge
+        var src = document.createElement('span');
+        src.className = 'key-source';
+        src.appendChild(makeTag(entry.source === 'env' ? '.env' : 'Runtime', entry.source === 'env' ? 'tag-blue' : 'tag-green'));
+        row.appendChild(src);
+
+        // Validation status
         var st = document.createElement('span');
         st.className = 'key-status';
-        st.appendChild(makeTag(entry.validated ? 'Validated' : 'Unknown', entry.validated ? 'tag-green' : 'tag-gray'));
+        var validLabel = 'Unknown';
+        var validCls = 'tag-gray';
+        if (entry.validated === true) { validLabel = 'Valid'; validCls = 'tag-green'; }
+        else if (entry.validated === false) { validLabel = 'Invalid'; validCls = 'tag-red'; }
+        st.appendChild(makeTag(validLabel, validCls));
         row.appendChild(st);
 
         var validateBtn = document.createElement('button');
@@ -579,13 +603,16 @@
         validateBtn.addEventListener('click', function() { validateKey(this.dataset.provider, parseInt(this.dataset.index)); });
         row.appendChild(validateBtn);
 
-        var delBtn = document.createElement('button');
-        delBtn.className = 'btn btn-sm btn-danger';
-        delBtn.textContent = 'Remove';
-        delBtn.dataset.provider = provider;
-        delBtn.dataset.index = entry.index;
-        delBtn.addEventListener('click', function() { deleteKey(this.dataset.provider, parseInt(this.dataset.index)); });
-        row.appendChild(delBtn);
+        // Only show remove for deletable (runtime) keys
+        if (entry.deletable) {
+          var delBtn = document.createElement('button');
+          delBtn.className = 'btn btn-sm btn-danger';
+          delBtn.textContent = 'Remove';
+          delBtn.dataset.provider = provider;
+          delBtn.dataset.index = entry.index;
+          delBtn.addEventListener('click', function() { deleteKey(this.dataset.provider, parseInt(this.dataset.index)); });
+          row.appendChild(delBtn);
+        }
 
         group.appendChild(row);
       });
@@ -649,6 +676,228 @@
     td.textContent = text;
     tr.appendChild(td);
     tbody.appendChild(tr);
+  }
+
+  // ── Setup Tab ──────────────────────────────────────────────────
+  var _connInfo = null;
+
+  async function loadConnectionInfo() {
+    try {
+      var resp = await fetch('/api/connection-info');
+      if (!resp.ok) return;
+      _connInfo = await resp.json();
+      renderSetup(_connInfo);
+    } catch(e) { console.error('loadConnectionInfo error:', e); }
+  }
+
+  function renderSetup(info) {
+    var container = document.getElementById('setup-content');
+    if (!container) return;
+    clearEl(container);
+
+    // Connection info cards
+    var infoGrid = document.createElement('div');
+    infoGrid.className = 'setup-info-grid';
+
+    var items = [
+      { label: 'Base URL', value: info.base_url, id: 'setup-base-url', copy: true },
+      { label: 'API Key (masked)', value: info.master_key_masked, id: 'setup-api-key-masked' },
+      { label: 'Models Available', value: String(info.model_count || 0) },
+      { label: 'Active Providers', value: String(info.provider_count || 0) },
+    ];
+
+    items.forEach(function(item) {
+      var card = document.createElement('div');
+      card.className = 'setup-info-card';
+      var lbl = document.createElement('div');
+      lbl.className = 'setup-label';
+      lbl.textContent = item.label;
+      card.appendChild(lbl);
+
+      var row = document.createElement('div');
+      row.className = 'setup-value-row';
+      var val = document.createElement('code');
+      if (item.id) val.id = item.id;
+      val.textContent = item.value;
+      row.appendChild(val);
+      if (item.copy) {
+        row.appendChild(makeCopyBtn(item.value));
+      }
+      card.appendChild(row);
+      infoGrid.appendChild(card);
+    });
+
+    // API Key reveal toggle
+    if (info.master_key) {
+      var keyCard = document.createElement('div');
+      keyCard.className = 'setup-info-card';
+      var keyLabel = document.createElement('div');
+      keyLabel.className = 'setup-label';
+      keyLabel.textContent = 'API Key (click to reveal)';
+      keyCard.appendChild(keyLabel);
+
+      var keyRow = document.createElement('div');
+      keyRow.className = 'setup-value-row';
+      var keyInput = document.createElement('input');
+      keyInput.type = 'password';
+      keyInput.value = info.master_key;
+      keyInput.readOnly = true;
+      keyInput.className = 'setup-key-input';
+      keyInput.id = 'setup-key-full';
+      keyRow.appendChild(keyInput);
+
+      var toggleBtn = document.createElement('button');
+      toggleBtn.className = 'btn btn-sm';
+      toggleBtn.textContent = 'Show';
+      toggleBtn.addEventListener('click', function() {
+        var inp = document.getElementById('setup-key-full');
+        if (inp.type === 'password') { inp.type = 'text'; this.textContent = 'Hide'; }
+        else { inp.type = 'password'; this.textContent = 'Show'; }
+      });
+      keyRow.appendChild(toggleBtn);
+
+      var copyKey = makeCopyBtn(info.master_key);
+      copyKey.textContent = 'Copy';
+      keyRow.appendChild(copyKey);
+
+      keyCard.appendChild(keyRow);
+      infoGrid.appendChild(keyCard);
+    }
+
+    container.appendChild(infoGrid);
+
+    // Config snippets
+    var snippetsTitle = document.createElement('h3');
+    snippetsTitle.className = 'setup-section-title';
+    snippetsTitle.textContent = 'Ready-to-Copy Configuration';
+    container.appendChild(snippetsTitle);
+
+    var defaultModel = (info.top_models && info.top_models[0]) || 'llama-3.3-70b';
+    var apiKey = info.master_key || 'YOUR_KEY';
+    var snippets = [
+      {
+        title: 'OpenAI Python',
+        code: 'from openai import OpenAI\n\nclient = OpenAI(\n    api_key="' + apiKey + '",\n    base_url="' + info.base_url + '"\n)\n\nresponse = client.chat.completions.create(\n    model="' + defaultModel + '",\n    messages=[{"role": "user", "content": "Hello!"}]\n)\nprint(response.choices[0].message.content)'
+      },
+      {
+        title: 'cURL',
+        code: 'curl ' + info.base_url + '/chat/completions \\\n  -H "Authorization: Bearer ' + apiKey + '" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"model": "' + defaultModel + '", "messages": [{"role": "user", "content": "Hello!"}]}\''
+      },
+      {
+        title: 'OpenClaw Config',
+        code: JSON.stringify({
+          api_key: apiKey,
+          base_url: info.base_url,
+          default_model: defaultModel,
+          models: info.top_models || []
+        }, null, 2)
+      },
+      {
+        title: 'Hermes Config',
+        code: JSON.stringify({
+          openai_api_key: apiKey,
+          openai_base_url: info.base_url,
+          model: defaultModel,
+          available_models: info.top_models || []
+        }, null, 2)
+      },
+      {
+        title: '.env File',
+        code: 'OPENAI_API_KEY=' + apiKey + '\nOPENAI_BASE_URL=' + info.base_url + '\nDEFAULT_MODEL=' + defaultModel
+      },
+    ];
+
+    snippets.forEach(function(snippet) {
+      var wrap = document.createElement('div');
+      wrap.className = 'snippet-card';
+
+      var hdr = document.createElement('div');
+      hdr.className = 'snippet-header';
+      var title = document.createElement('span');
+      title.textContent = snippet.title;
+      hdr.appendChild(title);
+      hdr.appendChild(makeCopyBtn(snippet.code));
+      wrap.appendChild(hdr);
+
+      var pre = document.createElement('pre');
+      pre.className = 'snippet-code';
+      var code = document.createElement('code');
+      code.textContent = snippet.code;
+      pre.appendChild(code);
+      wrap.appendChild(pre);
+
+      container.appendChild(wrap);
+    });
+
+    // Top models list
+    if (info.top_models && info.top_models.length) {
+      var modelsTitle = document.createElement('h3');
+      modelsTitle.className = 'setup-section-title';
+      modelsTitle.textContent = 'Recommended Models';
+      container.appendChild(modelsTitle);
+
+      var modelList = document.createElement('div');
+      modelList.className = 'setup-model-list';
+      info.top_models.forEach(function(m) {
+        modelList.appendChild(makeTag(m, 'tag-blue'));
+      });
+      container.appendChild(modelList);
+    }
+
+    // Auto-update section
+    var updateTitle = document.createElement('h3');
+    updateTitle.className = 'setup-section-title';
+    updateTitle.textContent = 'Keep Models Updated';
+    container.appendChild(updateTitle);
+
+    var updateInfo = document.createElement('p');
+    updateInfo.style.cssText = 'color:#8b949e;font-size:13px;margin-bottom:12px;line-height:1.6';
+    updateInfo.innerHTML = 'Providers add new free models regularly. Click the button below to re-scan all providers for new models. ' +
+      'You can also run <code style="background:#0d1117;padding:2px 6px;border-radius:3px">python3 auto_update.py</code> from the terminal.';
+    container.appendChild(updateInfo);
+
+    var updateBtn = document.createElement('button');
+    updateBtn.className = 'btn btn-primary';
+    updateBtn.textContent = '🔄 Scan for New Models';
+    updateBtn.style.marginRight = '8px';
+    updateBtn.addEventListener('click', async function() {
+      updateBtn.disabled = true;
+      updateBtn.textContent = 'Scanning...';
+      try {
+        var resp = await fetch('/api/auto-update', {
+          headers: { 'Authorization': 'Bearer ' + (info.master_key || '') }
+        });
+        if (resp.ok) {
+          var result = await resp.json();
+          if (result.new_models_discovered > 0) {
+            alert('Found ' + result.new_models_discovered + ' new models! Total: ' + result.current_model_count);
+          } else {
+            alert('All up to date! ' + result.current_model_count + ' models available.');
+          }
+          loadStatus();
+        } else {
+          alert('Scan failed. Check server logs.');
+        }
+      } catch(e) {
+        alert('Error: ' + e.message);
+      }
+      updateBtn.disabled = false;
+      updateBtn.textContent = '🔄 Scan for New Models';
+    });
+    container.appendChild(updateBtn);
+  }
+
+  function makeCopyBtn(text) {
+    var btn = document.createElement('button');
+    btn.className = 'btn btn-sm btn-copy';
+    btn.textContent = 'Copy';
+    btn.addEventListener('click', function() {
+      navigator.clipboard.writeText(text).then(function() {
+        btn.textContent = 'Copied!';
+        setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+      });
+    });
+    return btn;
   }
 
   window.switchTab = switchTab;
