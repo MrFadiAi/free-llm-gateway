@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Free LLM Gateway</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; }
+  a { color: #58a6ff; text-decoration: none; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+  header { border-bottom: 1px solid #21262d; padding: 16px 0; margin-bottom: 24px; }
+  header h1 { font-size: 24px; font-weight: 600; color: #f0f6fc; }
+  header p { color: #8b949e; margin-top: 4px; font-size: 14px; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .stat-card { background: #161b22; border: 1px solid #21262d; border-radius: 8px; padding: 16px; }
+  .stat-card .label { font-size: 12px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-card .value { font-size: 28px; font-weight: 700; color: #f0f6fc; margin-top: 4px; }
+
+  section { margin-bottom: 32px; }
+  section h2 { font-size: 18px; font-weight: 600; color: #f0f6fc; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  section h2 .badge { font-size: 12px; background: #1f6feb; color: #fff; padding: 2px 8px; border-radius: 12px; }
+
+  table { width: 100%; border-collapse: collapse; background: #161b22; border: 1px solid #21262d; border-radius: 8px; overflow: hidden; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #21262d; font-size: 13px; }
+  th { background: #1c2129; color: #8b949e; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover { background: #1c2129; }
+
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .tag-green { background: #0d2818; color: #3fb950; }
+  .tag-red { background: #3d0e0e; color: #f85149; }
+  .tag-yellow { background: #3d2e00; color: #d29922; }
+  .tag-blue { background: #0d1d35; color: #58a6ff; }
+  .tag-gray { background: #21262d; color: #8b949e; }
+
+  .providers-cell { display: flex; flex-wrap: wrap; gap: 4px; }
+
+  .log-ok { color: #3fb950; }
+  .log-fail { color: #f85149; }
+
+  .refresh-btn { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-left: auto; }
+  .refresh-btn:hover { background: #30363d; }
+
+  .empty { text-align: center; padding: 32px; color: #8b949e; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Free LLM Gateway</h1>
+    <p>Unified API endpoint for 14 free LLM providers</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="label">Models</div>
+      <div class="value">{{ total_models }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Providers Active</div>
+      <div class="value">{{ total_providers }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Endpoint</div>
+      <div class="value" style="font-size:16px;margin-top:8px;">/v1/chat/completions</div>
+    </div>
+  </div>
+
+  <section>
+    <h2>Provider Keys <span class="badge">{{ total_providers }}/14</span></h2>
+    <table>
+      <tr><th>Provider</th><th>API Key</th></tr>
+      {% for name, has_key in providers.items() %}
+      <tr>
+        <td>{{ name }}</td>
+        <td>{% if has_key %}<span class="tag tag-green">configured</span>{% else %}<span class="tag tag-gray">not set</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </section>
+
+  <section>
+    <h2>Models <span class="badge">{{ models|length }}</span></h2>
+    <table>
+      <tr><th>Model</th><th>Active Provider</th><th>Fallback Chain</th></tr>
+      {% for m in models %}
+      <tr>
+        <td><code>{{ m.name }}</code></td>
+        <td>
+          {% if m.active_provider %}
+            <span class="tag tag-green">{{ m.active_provider.provider }}</span>
+          {% else %}
+            <span class="tag tag-red">unavailable</span>
+          {% endif %}
+        </td>
+        <td>
+          <div class="providers-cell">
+          {% for p in m.providers %}
+            {% if p.available %}
+              <span class="tag tag-blue" title="{{ p.model }}">{{ p.provider }}</span>
+            {% elif p.rate_limited %}
+              <span class="tag tag-yellow" title="{{ p.model }}">{{ p.provider }} (limited)</span>
+            {% elif not p.has_key %}
+              <span class="tag tag-gray" title="{{ p.model }}">{{ p.provider }} (no key)</span>
+            {% else %}
+              <span class="tag tag-gray" title="{{ p.model }}">{{ p.provider }}</span>
+            {% endif %}
+          {% endfor %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </section>
+
+  {% if rate_limits %}
+  <section>
+    <h2>Rate Limits</h2>
+    <table>
+      <tr><th>Provider</th><th>RPM Used</th><th>RPM Limit</th><th>RPD Used</th><th>RPD Limit</th><th>Status</th></tr>
+      {% for name, rl in rate_limits.items() %}
+      <tr>
+        <td>{{ name }}</td>
+        <td>{{ rl.rpm_used }}</td>
+        <td>{% if rl.rpm_limit > 0 %}{{ rl.rpm_limit }}{% else %}unlimited{% endif %}</td>
+        <td>{{ rl.rpd_used }}</td>
+        <td>{% if rl.rpd_limit > 0 %}{{ rl.rpd_limit }}{% else %}unlimited{% endif %}</td>
+        <td>{% if rl.limited %}<span class="tag tag-red">limited</span>{% else %}<span class="tag tag-green">ok</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </section>
+  {% endif %}
+
+  <section>
+    <h2>
+      Request Logs
+      <button class="refresh-btn" onclick="location.reload()">Refresh</button>
+    </h2>
+    {% if logs %}
+    <table>
+      <tr><th>Time</th><th>Model</th><th>Provider</th><th>Provider Model</th><th>Latency</th><th>Status</th></tr>
+      {% for log in logs %}
+      <tr>
+        <td>{{ log.time_str }}</td>
+        <td><code>{{ log.model }}</code></td>
+        <td>{{ log.provider }}</td>
+        <td><code>{{ log.provider_model }}</code></td>
+        <td>{{ log.latency_ms }}ms</td>
+        <td>{% if log.success %}<span class="log-ok">OK</span>{% else %}<span class="log-fail" title="{{ log.error }}">FAIL</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <div class="empty">No requests yet. Send a chat completion request to see logs here.</div>
+    {% endif %}
+  </section>
+</div>
+</body>
+</html>
