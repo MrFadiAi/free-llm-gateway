@@ -68,6 +68,11 @@
       var resp = await fetch('/api/status');
       if (!resp.ok) return;
       cachedStatus = await resp.json();
+      // Also fetch analytics
+      try {
+        var aResp = await fetch('/api/analytics', { headers: { 'Authorization': 'Bearer ' + cachedStatus.master_key } });
+        if (aResp.ok) cachedStatus.analytics = await aResp.json();
+      } catch(e) {}
       renderAll(cachedStatus);
       updateLiveDot(true);
     } catch(e) {
@@ -88,6 +93,7 @@
     renderUsage(data);
     renderCacheQueue(data);
     renderLogs(data.logs || []);
+    renderAnalytics(data);
     loadKeys();
     // Re-render setup on every refresh if we have the data
     if (_connInfo) renderSetup(_connInfo);
@@ -504,6 +510,90 @@
     });
   }
 
+  // ── Analytics Tab ──────────────────────────────────────────────
+  function renderAnalytics(data) {
+    var container = document.getElementById('analytics-content');
+    if (!container) return;
+    var analytics = data.analytics || {};
+    var summary = analytics.summary || {};
+    var savings = analytics.savings || {};
+    var topModels = analytics.top_models || [];
+    var providers = analytics.providers || [];
+    var dailyHistory = analytics.daily_history || [];
+
+    container.innerHTML = '';
+
+    // Summary cards
+    var cards = document.createElement('div');
+    cards.className = 'analytics-cards';
+    cards.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px';
+    cards.innerHTML =
+      '<div class="stat-card" style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;text-align:center"><div style="font-size:24px;font-weight:700;color:#e6edf3">' + formatNumber(summary.total_requests || 0) + '</div><div style="font-size:12px;color:#8b949e;margin-top:4px">Total Requests</div></div>' +
+      '<div class="stat-card" style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;text-align:center"><div style="font-size:24px;font-weight:700;color:#e6edf3">' + formatNumber(summary.total_tokens || 0) + '</div><div style="font-size:12px;color:#8b949e;margin-top:4px">Total Tokens</div></div>' +
+      '<div class="stat-card" style="background:#0d1f0d;border:1px solid #238636;border-radius:8px;padding:16px;text-align:center"><div style="font-size:24px;font-weight:700;color:#3fb950">$' + (savings.all_time_usd || 0).toFixed(2) + '</div><div style="font-size:12px;color:#8b949e;margin-top:4px">Est. Savings</div></div>' +
+      '<div class="stat-card" style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;text-align:center"><div style="font-size:24px;font-weight:700;color:#58a6ff">' + formatNumber(summary.today_requests || 0) + '</div><div style="font-size:12px;color:#8b949e;margin-top:4px">Today</div></div>';
+    container.appendChild(cards);
+
+    // Top models table
+    if (topModels.length) {
+      var title = document.createElement('h3');
+      title.textContent = 'Most Used Models';
+      title.style.cssText = 'color:#e6edf3;margin:20px 0 8px;font-size:14px';
+      container.appendChild(title);
+      var table = document.createElement('table');
+      table.className = 'data-table';
+      table.innerHTML = '<thead><tr><th>Model</th><th>Requests</th><th>Tokens</th></tr></thead>';
+      var tbody = document.createElement('tbody');
+      topModels.forEach(function(m) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td style="color:#58a6ff">' + escapeHtml(m.model) + '</td><td>' + formatNumber(m.requests) + '</td><td>' + formatNumber(m.tokens) + '</td>';
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      container.appendChild(table);
+    }
+
+    // Provider stats
+    if (providers.length) {
+      var ptitle = document.createElement('h3');
+      ptitle.textContent = 'Provider Performance';
+      ptitle.style.cssText = 'color:#e6edf3;margin:20px 0 8px;font-size:14px';
+      container.appendChild(ptitle);
+      var ptable = document.createElement('table');
+      ptable.className = 'data-table';
+      ptable.innerHTML = '<thead><tr><th>Provider</th><th>Requests</th><th>Tokens</th><th>Success Rate</th></tr></thead>';
+      var ptbody = document.createElement('tbody');
+      providers.forEach(function(p) {
+        var rate = p.success_rate !== undefined ? p.success_rate + '%' : '—';
+        var rateColor = p.success_rate >= 90 ? '#3fb950' : p.success_rate >= 50 ? '#d29922' : '#f85149';
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + escapeHtml(p.provider) + '</td><td>' + formatNumber(p.requests) + '</td><td>' + formatNumber(p.tokens) + '</td><td style="color:' + rateColor + ';font-weight:600">' + rate + '</td>';
+        ptbody.appendChild(tr);
+      });
+      ptable.appendChild(ptbody);
+      container.appendChild(ptable);
+    }
+
+    // Daily bar chart
+    if (dailyHistory.length > 1) {
+      var ctitle = document.createElement('h3');
+      ctitle.textContent = 'Daily Requests';
+      ctitle.style.cssText = 'color:#e6edf3;margin:20px 0 8px;font-size:14px';
+      container.appendChild(ctitle);
+      var chart = document.createElement('div');
+      chart.style.cssText = 'display:flex;align-items:flex-end;gap:2px;height:100px;padding:8px 0';
+      var maxReq = Math.max.apply(null, dailyHistory.map(function(d) { return d.requests || 0; })) || 1;
+      dailyHistory.slice().reverse().forEach(function(d) {
+        var pct = ((d.requests || 0) / maxReq * 100);
+        var bar = document.createElement('div');
+        bar.style.cssText = 'flex:1;min-width:6px;background:linear-gradient(to top,#238636,#2ea043);border-radius:2px 2px 0 0;height:' + Math.max(pct, 2) + '%;cursor:pointer';
+        bar.title = d.date + ': ' + (d.requests || 0) + ' requests';
+        chart.appendChild(bar);
+      });
+      container.appendChild(chart);
+    }
+  }
+
   // ── Keys Tab ─────────────────────────────────────────────────
   function setupKeyForm() {
     var form = document.getElementById('key-form');
@@ -542,6 +632,31 @@
       if (!resp.ok) return;
       var data = await resp.json();
       renderKeys(data.keys || {});
+      // Add validate-all button if not already there
+      var keysTab = document.getElementById('tab-keys');
+      if (keysTab && !document.getElementById('validate-all-btn')) {
+        var btn = document.createElement('button');
+        btn.id = 'validate-all-btn';
+        btn.className = 'btn btn-primary';
+        btn.style.cssText = 'margin-bottom:16px';
+        btn.textContent = '✅ Validate All Keys';
+        btn.addEventListener('click', async function() {
+          btn.disabled = true;
+          btn.textContent = 'Validating...';
+          try {
+            var resp = await fetch('/api/keys/validate-all', { method: 'POST' });
+            if (resp.ok) {
+              var result = await resp.json();
+              var s = result.summary;
+              alert('Validation complete!\nValid: ' + s.valid + '\nInvalid: ' + s.invalid + '\nRate limited: ' + s.rate_limited + '\nNo key: ' + s.no_key + '\nError: ' + s.error);
+              loadKeys();
+            }
+          } catch(e) { alert('Error: ' + e.message); }
+          btn.disabled = false;
+          btn.textContent = '✅ Validate All Keys';
+        });
+        keysTab.insertBefore(btn, keysTab.firstChild);
+      }
     } catch(e) {}
   }
 

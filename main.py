@@ -18,6 +18,7 @@ from cache import ResponseCache, response_cache
 import sys
 from pathlib import Path
 
+from smart_router import SmartRouter
 from config import load_config, AppConfig, discover_models, PROVIDER_DEFS
 from health import HealthChecker
 from key_manager import KeyManager
@@ -25,6 +26,7 @@ from providers import has_tool_calling
 from request_queue import RequestQueue, request_queue, BLOCKING_QUEUE
 from rate_limiter import RateLimiter
 from router import Router, AllRateLimitedError
+from smart_default import SmartDefault
 from smart_router import SmartRouter
 from tracking import UsageTracker, usage_tracker
 
@@ -42,6 +44,8 @@ router = Router(config, rate_limiter, health_checker)
 templates = Jinja2Templates(directory="templates")
 key_manager = KeyManager(config.master_key or "default-key")
 smart_router = SmartRouter(config.models)
+# Smart router for model aliases
+smart_default = SmartDefault(config.models, {})
 
 # Shared httpx client (reused across requests for connection pooling)
 _client: httpx.AsyncClient | None = None
@@ -79,6 +83,8 @@ async def lifespan(app: FastAPI):
 
     # Sync key_manager keys into config providers
     _sync_keys_to_config()
+
+    # Startup complete
 
     # Start request queue workers
     request_queue.set_router(router)
@@ -705,6 +711,322 @@ async def config_env(authorization: str | None = Header(None)):
 
 # ── Batch requests ────────────────────────────────────────────────────────────
 BATCH_MAX_SIZE = int(os.environ.get("BATCH_MAX_SIZE", "10"))
+
+
+# ── Smart Default API ────────────────────────────────────────────────────────
+@app.get("/api/smart-default")
+async def api_smart_default(task: str = "chat", authorization: str | None = Header(None)):
+    verify_master_key(authorization)
+    return smart_default.get_default(task)
+
+
+@app.get("/api/smart-default/all")
+async def api_smart_default_all(authorization: str | None = Header(None)):
+    verify_master_key(authorization)
+    return smart_default.get_all_defaults()
+
+
+# ── Analytics API ────────────────────────────────────────────────────────────
+@app.get("/api/analytics")
+async def api_analytics(authorization: str | None = Header(None)):
+    verify_master_key(authorization)
+    stats = usage_tracker.get_stats()
+    daily = stats.get("today", {})
+    week = stats.get("week", {})
+    all_time = stats.get("all_time", {})
+
+    # Aggregate model and provider stats from all daily data
+    daily_data = usage_tracker._data.get("daily", {})
+    model_totals: dict[str, dict[str, int]] = {}
+    provider_totals: dict[str, dict[str, int]] = {}
+    provider_success_map: dict[str, dict[str, int]] = {}
+
+    for day_key, day_data in daily_data.items():
+        for model, mdata in day_data.get("by_model", {}).items():
+            if model not in model_totals:
+                model_totals[model] = {"requests": 0, "total_tokens": 0}
+            model_totals[model]["requests"] += mdata.get("requests", 0)
+            model_totals[model]["total_tokens"] += mdata.get("total_tokens", 0)
+
+        for provider, pdata in day_data.get("by_provider", {}).items():
+            if provider not in provider_totals:
+                provider_totals[provider] = {"requests": 0, "total_tokens": 0}
+            provider_totals[provider]["requests"] += pdata.get("requests", 0)
+            provider_totals[provider]["total_tokens"] += pdata.get("total_tokens", 0)
+
+    # Success rates from router logs
+    logs = router.get_logs(200)
+    for log_entry in logs:
+        p = log_entry.get("provider", "unknown")
+        if p not in provider_success_map:
+            provider_success_map[p] = {"success": 0, "total": 0}
+        provider_success_map[p]["total"] += 1
+        if log_entry.get("success"):
+            provider_success_map[p]["success"] += 1
+
+    # Average latency per model from logs
+    model_latency: dict[str, list[float]] = {}
+    for log_entry in logs:
+        m = log_entry.get("model", "")
+        if m not in model_latency:
+            model_latency[m] = []
+        model_latency[m].append(log_entry.get("latency_ms", 0))
+    avg_latency = {
+        m: round(sum(lats) / len(lats), 1)
+        for m, lats in model_latency.items() if lats
+    }
+
+    top_models = sorted(model_totals.items(), key=lambda x: x[1]["requests"], reverse=True)[:10]
+    top_providers = sorted(provider_totals.items(), key=lambda x: x[1]["requests"], reverse=True)
+
+    # GPT-4 pricing for estimated savings
+    gpt4_input = 0.03 / 1000
+    gpt4_output = 0.06 / 1000
+
+    def calc_savings(data: dict) -> float:
+        inp = data.get("prompt_tokens", 0)
+        out = data.get("completion_tokens", 0)
+        return round(inp * gpt4_input + out * gpt4_output, 4)
+
+    return {
+        "summary": {
+            "total_requests": all_time.get("requests", 0),
+            "total_tokens": all_time.get("total_tokens", 0),
+            "total_prompt_tokens": all_time.get("prompt_tokens", 0),
+            "total_completion_tokens": all_time.get("completion_tokens", 0),
+            "today_requests": daily.get("requests", 0),
+            "today_tokens": daily.get("total_tokens", 0),
+            "week_requests": week.get("requests", 0),
+            "week_tokens": week.get("total_tokens", 0),
+        },
+        "savings": {
+            "today_usd": calc_savings(daily),
+            "week_usd": calc_savings(week),
+            "all_time_usd": calc_savings(all_time),
+        },
+        "top_models": [
+            {"model": m, "requests": d["requests"], "tokens": d["total_tokens"]}
+            for m, d in top_models
+        ],
+        "providers": [
+            {
+                "provider": p,
+                "requests": d["requests"],
+                "tokens": d["total_tokens"],
+                "success_rate": round(
+                    provider_success_map.get(p, {}).get("success", 0) /
+                    max(provider_success_map.get(p, {}).get("total", 1), 1) * 100, 1
+                ),
+            }
+            for p, d in top_providers
+        ],
+        "avg_latency_per_model": avg_latency,
+        "daily_history": [
+            {
+                "date": dk,
+                "requests": dd.get("requests", 0),
+                "tokens": dd.get("total_tokens", 0),
+            }
+            for dk, dd in sorted(daily_data.items(), reverse=True)[:30]
+        ],
+    }
+
+
+# ── Key Health API ───────────────────────────────────────────────────────────
+@app.post("/api/keys/validate-all")
+async def api_validate_all_keys(authorization: str | None = Header(None)):
+    verify_master_key(authorization)
+    if not _client:
+        raise HTTPException(503, "Server not ready")
+
+    results = {}
+    for name, prov_def in PROVIDER_DEFS.items():
+        keys = key_manager.get_keys(name)
+        # Also include .env keys
+        provider = config.providers.get(name)
+        if not keys and provider and provider.api_keys:
+            keys = provider.api_keys
+
+        if not keys:
+            results[name] = {"status": "no_key", "keys": []}
+            continue
+
+        base_url = prov_def[1]
+        if "{account_id}" in base_url:
+            base_url = base_url.replace(
+                "{account_id}", os.environ.get("CLOUDFLARE_ACCOUNT_ID", "")
+            )
+
+        key_results = []
+        for i, api_key in enumerate(keys):
+            test_url = f"{base_url}/models"
+            headers = {"Authorization": f"Bearer {api_key}"}
+            if name == "openrouter":
+                headers["HTTP-Referer"] = "https://github.com/free-llm-gateway"
+                headers["X-Title"] = "Free LLM Gateway"
+            try:
+                resp = await _client.get(test_url, headers=headers, timeout=15.0)
+                if resp.status_code < 400:
+                    status = "valid"
+                elif resp.status_code == 429:
+                    status = "rate_limited"
+                elif resp.status_code in (401, 403):
+                    status = "invalid"
+                else:
+                    status = "error"
+                key_results.append({"index": i, "status": status})
+            except Exception:
+                key_results.append({"index": i, "status": "error"})
+
+        overall = "valid"
+        if all(k["status"] in ("invalid", "error") for k in key_results):
+            overall = "invalid"
+        elif any(k["status"] == "rate_limited" for k in key_results):
+            overall = "rate_limited"
+        elif any(k["status"] == "error" for k in key_results):
+            overall = "error"
+
+        results[name] = {"status": overall, "keys": key_results}
+
+    # Summary counts
+    valid = sum(1 for r in results.values() if r["status"] == "valid")
+    total_with_keys = sum(1 for r in results.values() if r["status"] != "no_key")
+    return {
+        "summary": {
+            "total": total_with_keys,
+            "valid": valid,
+            "invalid": sum(1 for r in results.values() if r["status"] == "invalid"),
+            "rate_limited": sum(1 for r in results.values() if r["status"] == "rate_limited"),
+            "no_key": sum(1 for r in results.values() if r["status"] == "no_key"),
+            "error": sum(1 for r in results.values() if r["status"] == "error"),
+        },
+        "results": results,
+    }
+
+
+# ── Export Configs API ───────────────────────────────────────────────────────
+@app.get("/api/config/export")
+async def api_config_export(tool: str = "", authorization: str | None = Header(None)):
+    verify_master_key(authorization)
+    if not tool:
+        raise HTTPException(400, "Missing 'tool' query parameter")
+
+    base_url = _get_base_url()
+    api_key = config.master_key or ""
+    top_models = [m for m in TOP_RECOMMENDED_MODELS if m in config.models][:10]
+    default_model = top_models[0] if top_models else "llama-3.3-70b"
+
+    configs: dict[str, dict[str, Any]] = {
+        "openclaw": {
+            "name": "OpenClaw",
+            "config": {
+                "api_key": api_key,
+                "base_url": base_url,
+                "default_model": default_model,
+                "models": top_models,
+            },
+        },
+        "cursor": {
+            "name": "Cursor",
+            "config": {
+                "apiKey": api_key,
+                "apiBase": base_url,
+                "model": default_model,
+            },
+        },
+        "librechat": {
+            "name": "LibreChat",
+            "config": {
+                "endpoints": {
+                    "custom": [{
+                        "name": "Free LLM Gateway",
+                        "apiKey": api_key,
+                        "baseURL": base_url,
+                        "models": {"default": [default_model], "fetch": True},
+                    }]
+                }
+            },
+        },
+        "open-webui": {
+            "name": "Open WebUI",
+            "config": {
+                "OPENAI_API_BASE_URL": base_url,
+                "OPENAI_API_KEY": api_key,
+                "model": default_model,
+            },
+        },
+        "continue-dev": {
+            "name": "Continue.dev",
+            "config": {
+                "models": [{
+                    "title": "Free LLM Gateway",
+                    "provider": "openai",
+                    "model": default_model,
+                    "apiBase": base_url,
+                    "apiKey": api_key,
+                }],
+            },
+        },
+        "jan": {
+            "name": "Jan",
+            "config": {
+                "api_key": api_key,
+                "base_url": base_url,
+                "model": default_model,
+            },
+        },
+        "litellm": {
+            "name": "LiteLLM",
+            "config": {
+                "model_list": [
+                    {
+                        "model_name": m,
+                        "litellm_params": {
+                            "model": f"openai/{m}",
+                            "api_base": base_url,
+                            "api_key": api_key,
+                        },
+                    }
+                    for m in top_models[:5]
+                ],
+            },
+        },
+        "generic-openai": {
+            "name": "Generic OpenAI SDK",
+            "config": {
+                "api_key": api_key,
+                "base_url": base_url,
+                "default_model": default_model,
+                "models": top_models,
+                "env_vars": {
+                    "OPENAI_API_KEY": api_key,
+                    "OPENAI_BASE_URL": base_url,
+                },
+            },
+        },
+    }
+
+    if tool not in configs:
+        raise HTTPException(400, f"Unknown tool: {tool}. Supported: {', '.join(configs.keys())}")
+
+    return {"tool": tool, **configs[tool]}
+
+
+@app.get("/api/config/export/tools")
+async def api_config_export_tools():
+    """List all supported export tool names."""
+    return {
+        "tools": [
+            {"id": "openclaw", "name": "OpenClaw"},
+            {"id": "cursor", "name": "Cursor"},
+            {"id": "librechat", "name": "LibreChat"},
+            {"id": "open-webui", "name": "Open WebUI"},
+            {"id": "continue-dev", "name": "Continue.dev"},
+            {"id": "jan", "name": "Jan"},
+            {"id": "litellm", "name": "LiteLLM"},
+            {"id": "generic-openai", "name": "Generic OpenAI SDK"},
+        ]
+    }
 
 
 @app.post("/v1/batch")

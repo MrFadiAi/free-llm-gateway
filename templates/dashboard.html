@@ -33,6 +33,14 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
       Usage
     </div>
+    <div class="nav-item" data-tab="analytics">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-6"/></svg>
+      Analytics
+    </div>
+    <div class="nav-item" data-tab="benchmarks">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+      Benchmarks
+    </div>
     <div class="nav-item" data-tab="cache">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
       Cache &amp; Queue
@@ -117,6 +125,46 @@
       <div id="usage-models-table"></div>
     </div>
 
+    <!-- Analytics Tab -->
+    <div id="tab-analytics" class="tab-panel">
+      <div class="page-header">
+        <h2>Analytics</h2>
+        <div class="header-actions">
+          <button class="refresh-btn" id="analytics-refresh-btn">Refresh</button>
+        </div>
+      </div>
+      <div class="mini-stats" id="analytics-summary"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+        <div class="chart-container">
+          <h3>Top Models</h3>
+          <div id="analytics-top-models"></div>
+        </div>
+        <div class="chart-container">
+          <h3>Provider Success Rates</h3>
+          <div id="analytics-provider-rates"></div>
+        </div>
+      </div>
+      <div class="chart-container">
+        <h3>Estimated Savings (GPT-4 Pricing)</h3>
+        <div id="analytics-savings"></div>
+      </div>
+    </div>
+
+    <!-- Benchmarks Tab -->
+    <div id="tab-benchmarks" class="tab-panel">
+      <div class="page-header">
+        <h2>Model Benchmarks</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" id="run-benchmark-btn">Run Benchmarks</button>
+        </div>
+      </div>
+      <div id="benchmark-status" style="margin-bottom:16px"></div>
+      <table>
+        <thead><tr><th>Rank</th><th>Model</th><th>Provider</th><th>Latency</th><th>TTFT</th><th>Tokens/sec</th><th>Status</th></tr></thead>
+        <tbody id="benchmarks-tbody"></tbody>
+      </table>
+    </div>
+
     <!-- Cache & Queue Tab -->
     <div id="tab-cache" class="tab-panel">
       <div class="page-header">
@@ -186,6 +234,6 @@
   </div>
 </div>
 
-<script src="/static/app.js?v=3"></script>
+<script src="/static/app.js?v=5"></script>
 </body>
 </html>
