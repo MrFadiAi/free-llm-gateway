@@ -663,6 +663,21 @@ async def api_connection_info():
     else:
         masked = "(not set)"
     available_top = [m for m in TOP_RECOMMENDED_MODELS if m in config.models][:10]
+    # Include provider guides with key status
+    guides = get_all_guides()
+    provider_info = []
+    for name, guide in guides.items():
+        prov = config.providers.get(name)
+        has_key = bool(prov and prov.api_keys) if prov else False
+        provider_info.append({
+            "id": name,
+            "name": guide["name"],
+            "has_key": has_key,
+            "sign_in_url": guide["sign_in_url"],
+            "env_key": guide["env_key"],
+            "rate_limit": guide["rate_limit"],
+            "notes": guide["notes"],
+        })
     return {
         "base_url": base_url,
         "master_key": master_key,
@@ -670,7 +685,19 @@ async def api_connection_info():
         "model_count": len(config.models),
         "provider_count": sum(1 for p in config.providers.values() if p.api_keys),
         "top_models": available_top,
+        "providers": provider_info,
     }
+
+
+@app.get("/api/provider-guide/{provider_name}")
+async def api_provider_guide(provider_name: str):
+    """Get detailed sign-up instructions for a provider."""
+    guide = get_guide(provider_name)
+    if not guide:
+        raise HTTPException(404, f"No guide found for provider: {provider_name}")
+    prov = config.providers.get(provider_name)
+    has_key = bool(prov and prov.api_keys) if prov else False
+    return {**guide, "has_key": has_key}
 
 
 @app.get("/api/config/openclaw")
@@ -1040,6 +1067,9 @@ async def api_config_export_tools():
             {"id": "generic-openai", "name": "Generic OpenAI SDK"},
         ]
     }
+
+
+from provider_guides import get_all_guides, get_guide
 
 
 @app.post("/v1/batch")

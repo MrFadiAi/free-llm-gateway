@@ -1,5 +1,5 @@
 {
-  "last_sync": "2026-04-24T22:42:15.333885",
+  "last_sync": "2026-04-24T22:52:18.523232",
   "upstream_date": "2026-04-20",
   "providers_known": [
     "cohere",
@@ -36,6 +36,20 @@
     },
     {
       "date": "2026-04-24T22:42:15.333626",
+      "upstream_date": "2026-04-20",
+      "new_models": 0,
+      "updated_models": 0,
+      "total_models": 115
+    },
+    {
+      "date": "2026-04-24T22:49:14.764996",
+      "upstream_date": "2026-04-20",
+      "new_models": 0,
+      "updated_models": 0,
+      "total_models": 115
+    },
+    {
+      "date": "2026-04-24T22:52:18.520973",
       "upstream_date": "2026-04-20",
       "new_models": 0,
       "updated_models": 0,

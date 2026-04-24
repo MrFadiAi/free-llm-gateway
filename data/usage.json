@@ -1,30 +1,30 @@
 {
   "daily": {
     "2026-04-24": {
-      "requests": 9,
-      "prompt_tokens": 264,
-      "completion_tokens": 120,
-      "total_tokens": 384,
+      "requests": 12,
+      "prompt_tokens": 334,
+      "completion_tokens": 150,
+      "total_tokens": 484,
       "by_provider": {
         "nvidia": {
-          "requests": 6,
-          "prompt_tokens": 218,
-          "completion_tokens": 40,
-          "total_tokens": 258
+          "requests": 8,
+          "prompt_tokens": 270,
+          "completion_tokens": 60,
+          "total_tokens": 330
         },
         "openrouter": {
-          "requests": 3,
-          "prompt_tokens": 46,
-          "completion_tokens": 80,
-          "total_tokens": 126
+          "requests": 4,
+          "prompt_tokens": 64,
+          "completion_tokens": 90,
+          "total_tokens": 154
         }
       },
       "by_model": {
         "llama-3.3-70b": {
-          "requests": 5,
-          "prompt_tokens": 199,
-          "completion_tokens": 34,
-          "total_tokens": 233
+          "requests": 6,
+          "prompt_tokens": 236,
+          "completion_tokens": 44,
+          "total_tokens": 280
         },
         "deepseek-r1": {
           "requests": 1,
@@ -33,24 +33,24 @@
           "total_tokens": 61
         },
         "nemotron-super-120b": {
-          "requests": 2,
-          "prompt_tokens": 35,
-          "completion_tokens": 30,
-          "total_tokens": 65
+          "requests": 3,
+          "prompt_tokens": 53,
+          "completion_tokens": 40,
+          "total_tokens": 93
         },
         "gemma-4-31b": {
-          "requests": 1,
-          "prompt_tokens": 19,
-          "completion_tokens": 6,
-          "total_tokens": 25
+          "requests": 2,
+          "prompt_tokens": 34,
+          "completion_tokens": 16,
+          "total_tokens": 50
         }
       }
     }
   },
   "total": {
-    "requests": 9,
-    "prompt_tokens": 264,
-    "completion_tokens": 120,
-    "total_tokens": 384
+    "requests": 12,
+    "prompt_tokens": 334,
+    "completion_tokens": 150,
+    "total_tokens": 484
   }
 }

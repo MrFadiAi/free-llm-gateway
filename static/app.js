@@ -1214,6 +1214,127 @@
       syncBtn.textContent = 'Sync Providers from Upstream';
     });
     container.appendChild(syncBtn);
+
+    // Provider Guides section
+    if (info.providers && info.providers.length) {
+      var provTitle = document.createElement('h3');
+      provTitle.className = 'setup-section-title';
+      provTitle.style.cssText = 'margin-top:24px';
+      provTitle.textContent = '🔑 Provider Setup Guides';
+      container.appendChild(provTitle);
+
+      var provDesc = document.createElement('p');
+      provDesc.style.cssText = 'color:#8b949e;font-size:13px;margin-bottom:12px;line-height:1.5';
+      provDesc.textContent = 'Click any provider to see step-by-step instructions for getting a free API key.';
+      container.appendChild(provDesc);
+
+      var provGrid = document.createElement('div');
+      provGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px';
+
+      info.providers.forEach(function(p) {
+        var card = document.createElement('div');
+        card.style.cssText = 'background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px;cursor:pointer;transition:border-color 0.2s';
+        card.addEventListener('mouseenter', function() { this.style.borderColor = '#58a6ff'; });
+        card.addEventListener('mouseleave', function() { this.style.borderColor = p.has_key ? '#238636' : '#30363d'; });
+        if (p.has_key) card.style.borderColor = '#238636';
+
+        // Header
+        var hdr = document.createElement('div');
+        hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px';
+        var name = document.createElement('strong');
+        name.style.cssText = 'color:#e6edf3;font-size:14px';
+        name.textContent = p.name;
+        hdr.appendChild(name);
+
+        var status = document.createElement('span');
+        if (p.has_key) {
+          status.style.cssText = 'background:#0d1f0d;color:#3fb950;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600';
+          status.textContent = '✓ Connected';
+        } else {
+          status.style.cssText = 'background:#1c1c1c;color:#8b949e;padding:2px 8px;border-radius:10px;font-size:11px';
+          status.textContent = 'No key';
+        }
+        hdr.appendChild(status);
+        card.appendChild(hdr);
+
+        // Rate limit
+        var rl = document.createElement('div');
+        rl.style.cssText = 'color:#8b949e;font-size:12px;margin-bottom:6px';
+        rl.textContent = '⚡ ' + p.rate_limit;
+        card.appendChild(rl);
+
+        // Env key
+        var env = document.createElement('div');
+        env.style.cssText = 'font-size:11px;color:#6e7681;margin-bottom:8px';
+        env.textContent = p.env_key + '=...';
+        card.appendChild(env);
+
+        // Notes
+        if (p.notes) {
+          var note = document.createElement('div');
+          note.style.cssText = 'color:#6e7681;font-size:11px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical';
+          note.textContent = p.notes;
+          card.appendChild(note);
+        }
+
+        // Get Key button
+        var btnRow = document.createElement('div');
+        btnRow.style.cssText = 'margin-top:10px;display:flex;gap:6px';
+        var getKeyBtn = document.createElement('a');
+        getKeyBtn.href = p.sign_in_url;
+        getKeyBtn.target = '_blank';
+        getKeyBtn.style.cssText = 'color:#58a6ff;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:4px';
+        getKeyBtn.textContent = 'Get API Key →';
+        btnRow.appendChild(getKeyBtn);
+
+        // Instructions toggle
+        var instrBtn = document.createElement('button');
+        instrBtn.style.cssText = 'color:#8b949e;font-size:11px;background:none;border:none;cursor:pointer;padding:0';
+        instrBtn.textContent = 'Instructions';
+        instrBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          loadProviderGuide(p.id, card);
+        });
+        btnRow.appendChild(instrBtn);
+        card.appendChild(btnRow);
+
+        provGrid.appendChild(card);
+      });
+      container.appendChild(provGrid);
+    }
+  }
+
+  async function loadProviderGuide(providerId, cardEl) {
+    // Toggle instructions panel
+    var existing = cardEl.querySelector('.guide-panel');
+    if (existing) { existing.remove(); return; }
+
+    try {
+      var resp = await fetch('/api/provider-guide/' + providerId);
+      if (!resp.ok) return;
+      var guide = await resp.json();
+
+      var panel = document.createElement('div');
+      panel.className = 'guide-panel';
+      panel.style.cssText = 'margin-top:12px;padding-top:12px;border-top:1px solid #30363d';
+
+      var steps = guide.instructions || [];
+      steps.forEach(function(step, i) {
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;font-size:12px;line-height:1.5';
+        var num = document.createElement('span');
+        num.style.cssText = 'color:#58a6ff;font-weight:700;min-width:18px';
+        num.textContent = (i + 1) + '.';
+        row.appendChild(num);
+        var txt = document.createElement('span');
+        txt.style.cssText = 'color:#c9d1d9';
+        txt.textContent = step;
+        row.appendChild(txt);
+        panel.appendChild(row);
+      });
+
+      cardEl.appendChild(panel);
+    } catch(e) {}
   }
 
   // ── Smart Defaults ──────────────────────────────────────────
