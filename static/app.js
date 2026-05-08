@@ -13,6 +13,7 @@
     setupMobileMenu();
     setupKeyForm();
     setupBenchmarkBtn();
+    setupComboForm();
     loadStatus();
     startAutoRefresh();
   });
@@ -42,6 +43,15 @@
     }
     if (tab === 'analytics') {
       loadAnalytics();
+    }
+    if (tab === 'quotas') {
+      loadQuotas();
+    }
+    if (tab === 'oauth') {
+      loadOAuthProviders();
+    }
+    if (tab === 'combos') {
+      loadCombos();
     }
   }
 
@@ -94,6 +104,9 @@
     renderUsage(data);
     renderCacheQueue(data);
     renderLogs(data.logs || []);
+    renderCombos(data.combos || []);
+    renderQuotas(data.quotas || {});
+    renderOAuth(data.oauth || []);
     loadKeys();
     if (_connInfo) renderSetup(_connInfo);
     loadConnectionInfo();
@@ -1677,4 +1690,239 @@
   }
 
   window.switchTab = switchTab;
+
+  // ── Custom Combos ──────────────────────────────────────────────
+  function setupComboForm() {
+    var createBtn = document.getElementById('create-combo-btn');
+    var cancelBtn = document.getElementById('cancel-combo-btn');
+    var addEntryBtn = document.getElementById('add-combo-entry-btn');
+    var saveBtn = document.getElementById('save-combo-btn');
+    var form = document.getElementById('combo-create-form');
+
+    if (createBtn) createBtn.addEventListener('click', function() {
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    });
+    if (cancelBtn) cancelBtn.addEventListener('click', function() {
+      form.style.display = 'none';
+    });
+    if (addEntryBtn) addEntryBtn.addEventListener('click', function() {
+      var container = document.getElementById('combo-entries');
+      var row = document.createElement('div');
+      row.className = 'combo-entry-row';
+      row.style.cssText = 'display:flex;gap:8px;margin-bottom:4px';
+      row.innerHTML = '<input type="text" placeholder="Provider" class="combo-provider" style="flex:1">' +
+        '<input type="text" placeholder="Model ID" class="combo-model" style="flex:1">' +
+        '<input type="number" placeholder="Weight" class="combo-weight" value="1" style="width:70px">';
+      container.appendChild(row);
+    });
+    if (saveBtn) saveBtn.addEventListener('click', async function() {
+      var name = document.getElementById('combo-name').value.trim();
+      var desc = document.getElementById('combo-desc').value.trim();
+      var entries = [];
+      var rows = document.querySelectorAll('.combo-entry-row');
+      rows.forEach(function(row) {
+        var provider = row.querySelector('.combo-provider').value.trim();
+        var model = row.querySelector('.combo-model').value.trim();
+        var weight = parseInt(row.querySelector('.combo-weight').value) || 1;
+        if (provider && model) entries.push({provider: provider, model: model, weight: weight});
+      });
+      if (!name || !entries.length) { alert('Name and at least one entry required'); return; }
+      try {
+        var resp = await fetch('/api/combos', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({name: name, description: desc, entries: entries})
+        });
+        var data = await resp.json();
+        if (data.ok) {
+          form.style.display = 'none';
+          document.getElementById('combo-name').value = '';
+          document.getElementById('combo-desc').value = '';
+          loadStatus();
+        } else { alert(data.detail || 'Failed'); }
+      } catch(e) { alert('Error: ' + e.message); }
+    });
+  }
+
+  function renderCombos(combos) {
+    var tbody = document.getElementById('combos-tbody');
+    if (!tbody) return;
+    clearEl(tbody);
+    if (!combos.length) {
+      addEmptyRow(tbody, 4, 'No custom combos yet. Click "Create Combo" to start.');
+      return;
+    }
+    combos.forEach(function(combo) {
+      var tr = document.createElement('tr');
+      appendCodeCell(tr, combo.name);
+      appendCell(tr, combo.description || '-');
+      var chain = combo.entries.map(function(e) { return e.provider + '/' + e.model; }).join(' → ');
+      appendCell(tr, chain);
+      var td = document.createElement('td');
+      var delBtn = document.createElement('button');
+      delBtn.className = 'btn btn-sm';
+      delBtn.style.cssText = 'background:#f85149;color:#fff';
+      delBtn.textContent = 'Delete';
+      delBtn.addEventListener('click', async function() {
+        if (!confirm('Delete combo "' + combo.name + '"?')) return;
+        await fetch('/api/combos/' + combo.name, {method: 'DELETE'});
+        loadStatus();
+      });
+      td.appendChild(delBtn);
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function loadCombos() {
+    try {
+      var resp = await fetch('/api/combos');
+      if (resp.ok) {
+        var data = await resp.json();
+        renderCombos(data.combos || []);
+      }
+    } catch(e) {}
+  }
+
+  // ── Quota Tracker ──────────────────────────────────────────────
+  function renderQuotas(quotasData) {
+    var grid = document.getElementById('quotas-grid');
+    if (!grid) return;
+    clearEl(grid);
+    var providers = quotasData.dashboard && quotasData.dashboard.providers || [];
+    if (!providers.length) {
+      grid.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">No quota data yet. Quotas appear after requests are made.</div>';
+      return;
+    }
+    providers.forEach(function(p) {
+      var card = document.createElement('div');
+      card.className = 'provider-card';
+      var statusColor = p.within_limits ? '#3fb950' : '#f85149';
+      var statusText = p.within_limits ? 'Within Limits' : 'Limit Reached';
+
+      var rpmBar = '';
+      if (p.rpm.limit > 0) {
+        var rpmPct = Math.min(100, Math.round(p.rpm.used / p.rpm.limit * 100));
+        var rpmColor = rpmPct > 80 ? '#f85149' : rpmPct > 50 ? '#d29922' : '#3fb950';
+        rpmBar = '<div style="margin-top:8px"><div style="display:flex;justify-content:space-between;font-size:12px">' +
+          '<span>RPM: ' + p.rpm.used + '/' + p.rpm.limit + '</span>' +
+          '<span>Reset: ' + formatCountdown(p.rpm.reset_in) + '</span></div>' +
+          '<div style="height:4px;background:var(--bg-hover);border-radius:2px;margin-top:4px">' +
+          '<div style="height:100%;width:' + rpmPct + '%;background:' + rpmColor + ';border-radius:2px"></div></div></div>';
+      }
+
+      var rpdBar = '';
+      if (p.rpd.limit > 0) {
+        var rpdPct = Math.min(100, Math.round(p.rpd.used / p.rpd.limit * 100));
+        var rpdColor = rpdPct > 80 ? '#f85149' : rpdPct > 50 ? '#d29922' : '#3fb950';
+        rpdBar = '<div style="margin-top:8px"><div style="display:flex;justify-content:space-between;font-size:12px">' +
+          '<span>RPD: ' + p.rpd.used + '/' + p.rpd.limit + '</span>' +
+          '<span>Reset: ' + formatCountdown(p.rpd.reset_in) + '</span></div>' +
+          '<div style="height:4px;background:var(--bg-hover);border-radius:2px;margin-top:4px">' +
+          '<div style="height:100%;width:' + rpdPct + '%;background:' + rpdColor + ';border-radius:2px"></div></div></div>';
+      }
+
+      card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<strong>' + p.provider + '</strong>' +
+        '<span style="font-size:12px;color:' + statusColor + '">' + statusText + '</span></div>' +
+        rpmBar + rpdBar +
+        (p.tokens_limit > 0 ? '<div style="margin-top:8px;font-size:12px;color:var(--text-muted)">Tokens today: ' + formatNumber(p.tokens_today) + ' / ' + formatNumber(p.tokens_limit) + '</div>' : '');
+      grid.appendChild(card);
+    });
+  }
+
+  async function loadQuotas() {
+    try {
+      var resp = await fetch('/api/quotas');
+      if (resp.ok) {
+        var data = await resp.json();
+        renderQuotas({dashboard: data.dashboard});
+      }
+    } catch(e) {}
+  }
+
+  function formatCountdown(seconds) {
+    if (seconds < 0) return 'N/A';
+    if (seconds < 60) return seconds + 's';
+    var m = Math.floor(seconds / 60);
+    var s = seconds % 60;
+    if (m < 60) return m + 'm ' + s + 's';
+    var h = Math.floor(m / 60);
+    return h + 'h ' + (m % 60) + 'm';
+  }
+
+  // ── OAuth Connections ──────────────────────────────────────────
+  function renderOAuth(connections) {
+    var grid = document.getElementById('oauth-grid');
+    if (!grid) return;
+    clearEl(grid);
+    if (!connections.length) {
+      grid.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">No OAuth providers configured.</div>';
+      return;
+    }
+    connections.forEach(function(conn) {
+      var card = document.createElement('div');
+      card.className = 'provider-card';
+      var statusColor = !conn.connected ? '#8b949e' : conn.expired ? '#d29922' : '#3fb950';
+      var statusText = !conn.connected ? 'Not Connected' : conn.expired ? 'Expired' : 'Connected';
+
+      card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<strong>' + conn.name + '</strong>' +
+        '<span style="font-size:12px;color:' + statusColor + '">' + statusText + '</span></div>' +
+        '<div style="margin-top:8px;font-size:12px;color:var(--text-muted)">Provider: ' + conn.provider + '</div>' +
+        (conn.connected ? '<div style="margin-top:8px;display:flex;gap:8px">' +
+          (conn.can_refresh ? '<button class="btn btn-sm oauth-refresh-btn" data-provider="' + conn.provider + '">Refresh Token</button>' : '') +
+          '<button class="btn btn-sm oauth-disconnect-btn" data-provider="' + conn.provider + '" style="background:#f85149;color:#fff">Disconnect</button></div>'
+        : '<div style="margin-top:8px"><button class="btn btn-sm oauth-connect-btn" data-provider="' + conn.provider + '">Connect</button></div>');
+      grid.appendChild(card);
+    });
+
+    grid.querySelectorAll('.oauth-refresh-btn').forEach(function(btn) {
+      btn.addEventListener('click', async function() {
+        var provider = this.dataset.provider;
+        try {
+          var resp = await fetch('/api/oauth/refresh/' + provider, {method: 'POST'});
+          var data = await resp.json();
+          if (data.error) alert(data.error);
+          else { alert('Token refreshed!'); loadOAuthProviders(); }
+        } catch(e) { alert('Error: ' + e.message); }
+      });
+    });
+
+    grid.querySelectorAll('.oauth-disconnect-btn').forEach(function(btn) {
+      btn.addEventListener('click', async function() {
+        var provider = this.dataset.provider;
+        if (!confirm('Disconnect ' + provider + '?')) return;
+        await fetch('/api/oauth/' + provider, {method: 'DELETE'});
+        loadOAuthProviders();
+      });
+    });
+
+    grid.querySelectorAll('.oauth-connect-btn').forEach(function(btn) {
+      btn.addEventListener('click', async function() {
+        var provider = this.dataset.provider;
+        try {
+          var resp = await fetch('/api/oauth/authorize', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({provider: provider})
+          });
+          var data = await resp.json();
+          if (data.authorize_url) {
+            window.open(data.authorize_url, '_blank', 'width=600,height=700');
+          } else { alert(data.error || 'Failed to start OAuth flow'); }
+        } catch(e) { alert('Error: ' + e.message); }
+      });
+    });
+  }
+
+  async function loadOAuthProviders() {
+    try {
+      var resp = await fetch('/api/oauth/providers');
+      if (resp.ok) {
+        var data = await resp.json();
+        renderOAuth(data.providers || []);
+      }
+    } catch(e) {}
+  }
 })();

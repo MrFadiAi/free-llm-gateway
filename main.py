@@ -28,10 +28,14 @@ from rate_limiter import RateLimiter
 from router import Router, AllRateLimitedError
 from smart_router import SmartRouter
 from smart_default import SmartDefault
-from smart_router import SmartRouter
 from tracking import UsageTracker, usage_tracker
 from provider_guides import get_all_guides, get_guide
 from benchmark import BenchmarkRunner
+from token_compressor import compress_messages
+from format_translator import detect_format, translate_to_openai, translate_response, FormatType
+from custom_combos import combo_manager
+from quota_tracker import quota_tracker
+from oauth_manager import oauth_manager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -89,6 +93,9 @@ async def lifespan(app: FastAPI):
     # Sync key_manager keys into config providers
     _sync_keys_to_config()
 
+    # Merge custom combos into model config
+    combo_manager.merge_into_config(config.models)
+
     # Startup complete
 
     # Start request queue workers
@@ -135,8 +142,29 @@ async def chat_completions(request: Request, authorization: str | None = Header(
     model = body.get("model", "")
     stream = body.get("stream", False)
 
+    # ── Format translation: auto-detect and normalize to OpenAI ──
+    source_format = detect_format(body)
+    if source_format != "openai":
+        logger.info("Format translation: %s -> openai", source_format)
+        body = translate_to_openai(body, source_format)
+
     if not model:
-        raise HTTPException(400, "Missing 'model' field")
+        model = body.get("model", "")
+        if not model:
+            raise HTTPException(400, "Missing 'model' field")
+
+    # ── RTK Token Compression ──
+    messages = body.get("messages", [])
+    if messages and len(messages) >= 6:
+        rtk_enabled = os.environ.get("RTK_COMPRESSION", "true").lower() != "false"
+        compression = compress_messages(messages, enabled=rtk_enabled)
+        if compression.strategies_applied:
+            body["messages"] = compression.messages
+            logger.info(
+                "RTK: %d -> %d tokens (%.1f%% saved)",
+                compression.original_count, compression.compressed_count,
+                compression.saved_percent,
+            )
 
     # ── Smart routing: resolve model name via aliases and equivalence ──
     resolved = smart_router.resolve(model)
@@ -191,6 +219,8 @@ async def chat_completions(request: Request, authorization: str | None = Header(
                 completion_tokens=usage.get("completion_tokens", 0) or 0,
                 total_tokens=usage.get("total_tokens", 0) or 0,
             )
+            # Quota tracking
+            quota_tracker.record_request(provider, tokens=usage.get("total_tokens", 0) or 0)
 
         # ── Cache the response (non-streaming only) ──
         if not stream:
@@ -207,6 +237,7 @@ async def chat_completions(request: Request, authorization: str | None = Header(
                 "X-Provider": provider,
                 "X-Provider-Model": provider_model,
                 "X-Cache": "BYPASS",
+                "X-Source-Format": source_format,
             },
         )
 
@@ -215,6 +246,7 @@ async def chat_completions(request: Request, authorization: str | None = Header(
         result.setdefault("model", provider_model)
     cache_headers["X-Provider"] = provider
     cache_headers["X-Provider-Model"] = provider_model
+    cache_headers["X-Source-Format"] = source_format
     return JSONResponse(content=result, headers=cache_headers)
 
 
@@ -415,6 +447,9 @@ async def api_status():
         "cache": response_cache.stats(),
         "queue": request_queue.stats(),
         "providers": providers_info,
+        "quotas": quota_tracker.get_dashboard_summary(),
+        "combos": combo_manager.list_combos(),
+        "oauth": oauth_manager.list_connections(),
     }
 
 
@@ -1089,6 +1124,219 @@ async def api_config_export_tools():
             {"id": "generic-openai", "name": "Generic OpenAI SDK"},
         ]
     }
+
+
+# ── RTK Token Compression API ────────────────────────────────────────────────
+@app.post("/api/compress")
+async def api_compress(request: Request, authorization: str | None = Header(None)):
+    """Compress a message list using RTK token compression."""
+    verify_master_key(authorization)
+    body = await request.json()
+    messages = body.get("messages", [])
+    max_context = body.get("max_context", 20)
+    if not messages:
+        raise HTTPException(400, "Missing 'messages' field")
+
+    result = compress_messages(messages, enabled=True, max_context=max_context)
+    return {
+        "original_tokens": result.original_count,
+        "compressed_tokens": result.compressed_count,
+        "saved_percent": result.saved_percent,
+        "strategies_applied": result.strategies_applied,
+        "messages": result.messages,
+    }
+
+
+# ── Format Translation API ───────────────────────────────────────────────────
+@app.post("/api/translate")
+async def api_translate(request: Request, authorization: str | None = Header(None)):
+    """Translate a request body between API formats."""
+    verify_master_key(authorization)
+    body = await request.json()
+    source = body.get("source_format") or detect_format(body.get("body", {}))
+    target = body.get("target_format", "openai")
+    request_body = body.get("body", {})
+
+    if not request_body:
+        raise HTTPException(400, "Missing 'body' field")
+
+    from format_translator import translate_request
+    translated = translate_request(request_body, target)
+
+    return {
+        "source_format": source,
+        "target_format": target,
+        "translated": translated,
+    }
+
+
+@app.get("/api/formats")
+async def api_formats():
+    """List supported API formats."""
+    return {
+        "formats": [
+            {"id": "openai", "name": "OpenAI", "description": "Standard OpenAI chat completions"},
+            {"id": "claude", "name": "Anthropic Claude", "description": "Claude Messages API"},
+            {"id": "gemini", "name": "Google Gemini", "description": "Gemini generateContent API"},
+            {"id": "vertex", "name": "Google Vertex AI", "description": "Vertex AI prediction API"},
+        ],
+    }
+
+
+# ── Custom Combos API ────────────────────────────────────────────────────────
+@app.get("/api/combos")
+async def api_list_combos(authorization: str | None = Header(None)):
+    """List all custom combos."""
+    verify_master_key(authorization)
+    return {"combos": combo_manager.list_combos()}
+
+
+@app.post("/api/combos")
+async def api_create_combo(request: Request, authorization: str | None = Header(None)):
+    """Create a new custom combo."""
+    verify_master_key(authorization)
+    body = await request.json()
+    name = body.get("name", "").strip()
+    entries = body.get("entries", [])
+    description = body.get("description", "")
+
+    if not name:
+        raise HTTPException(400, "Missing 'name' field")
+    if not entries:
+        raise HTTPException(400, "Missing 'entries' field")
+    for e in entries:
+        if "provider" not in e or "model" not in e:
+            raise HTTPException(400, "Each entry must have 'provider' and 'model'")
+
+    combo = combo_manager.create_combo(name, entries, description)
+    # Merge into runtime config
+    config.models[name] = combo.to_model_config()
+    return {"ok": True, "combo": combo.name, "entries": len(combo.entries)}
+
+
+@app.put("/api/combos/{name}")
+async def api_update_combo(name: str, request: Request, authorization: str | None = Header(None)):
+    """Update an existing combo."""
+    verify_master_key(authorization)
+    body = await request.json()
+    combo = combo_manager.update_combo(
+        name,
+        entries=body.get("entries"),
+        description=body.get("description"),
+    )
+    if not combo:
+        raise HTTPException(404, f"Combo '{name}' not found")
+    config.models[name] = combo.to_model_config()
+    return {"ok": True, "combo": combo.name}
+
+
+@app.delete("/api/combos/{name}")
+async def api_delete_combo(name: str, authorization: str | None = Header(None)):
+    """Delete a combo."""
+    verify_master_key(authorization)
+    if not combo_manager.delete_combo(name):
+        raise HTTPException(404, f"Combo '{name}' not found")
+    config.models.pop(name, None)
+    return {"ok": True}
+
+
+# ── Quota Tracking API ────────────────────────────────────────────────────────
+@app.get("/api/quotas")
+async def api_quotas(authorization: str | None = Header(None)):
+    """Get quota status for all providers."""
+    verify_master_key(authorization)
+    return {
+        "providers": quota_tracker.get_all_quotas(),
+        "dashboard": quota_tracker.get_dashboard_summary(),
+    }
+
+
+@app.get("/api/quotas/{provider}")
+async def api_quota_provider(provider: str, authorization: str | None = Header(None)):
+    """Get quota status for a specific provider."""
+    verify_master_key(authorization)
+    quota = quota_tracker.get_quota(provider)
+    if not quota:
+        raise HTTPException(404, f"No quota data for provider: {provider}")
+    return quota
+
+
+@app.put("/api/quotas/{provider}")
+async def api_set_quota_limits(
+    provider: str,
+    request: Request,
+    authorization: str | None = Header(None),
+):
+    """Set custom quota limits for a provider."""
+    verify_master_key(authorization)
+    body = await request.json()
+    q = quota_tracker.set_provider_limits(
+        provider,
+        rpm=body.get("rpm"),
+        rpd=body.get("rpd"),
+        tokens_per_day=body.get("tokens_per_day"),
+        spending_daily=body.get("spending_limit_daily"),
+        spending_monthly=body.get("spending_limit_monthly"),
+    )
+    return {"ok": True, "provider": provider, "quota": q.to_dict()}
+
+
+# ── OAuth API ─────────────────────────────────────────────────────────────────
+@app.get("/api/oauth/providers")
+async def api_oauth_providers(authorization: str | None = Header(None)):
+    """List available OAuth subscription providers and their connection status."""
+    verify_master_key(authorization)
+    return {"providers": oauth_manager.list_connections()}
+
+
+@app.post("/api/oauth/authorize")
+async def api_oauth_authorize(request: Request, authorization: str | None = Header(None)):
+    """Start an OAuth flow for a subscription provider."""
+    verify_master_key(authorization)
+    body = await request.json()
+    provider = body.get("provider", "").strip()
+    client_id = body.get("client_id", "").strip()
+    if not provider:
+        raise HTTPException(400, "Missing 'provider' field")
+    result = oauth_manager.get_authorize_url(provider, client_id)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@app.get("/api/oauth/callback")
+async def api_oauth_callback(state: str, code: str):
+    """Handle OAuth callback (redirected from provider)."""
+    if not _client:
+        raise HTTPException(503, "Server not ready")
+    result = await oauth_manager.handle_callback(state, code, _client)
+    if "error" in result:
+        return HTMLResponse(content=f"<h3>OAuth Error</h3><p>{result['error']}</p>")
+    return HTMLResponse(
+        content=f"<h3>Connected!</h3><p>{result['provider']} is now connected.</p>"
+        "<p>You can close this tab.</p>"
+    )
+
+
+@app.post("/api/oauth/refresh/{provider}")
+async def api_oauth_refresh(provider: str, authorization: str | None = Header(None)):
+    """Refresh an OAuth token."""
+    verify_master_key(authorization)
+    if not _client:
+        raise HTTPException(503, "Server not ready")
+    result = await oauth_manager.refresh_token(provider, _client)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@app.delete("/api/oauth/{provider}")
+async def api_oauth_disconnect(provider: str, authorization: str | None = Header(None)):
+    """Disconnect an OAuth provider."""
+    verify_master_key(authorization)
+    if not oauth_manager.remove_token(provider):
+        raise HTTPException(404, f"No OAuth connection for: {provider}")
+    return {"ok": True}
 
 
 

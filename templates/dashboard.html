@@ -45,6 +45,18 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
       Cache &amp; Queue
     </div>
+    <div class="nav-item" data-tab="combos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+      Combos
+    </div>
+    <div class="nav-item" data-tab="quotas">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 6v6l4 2"/></svg>
+      Quotas
+    </div>
+    <div class="nav-item" data-tab="oauth">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      OAuth
+    </div>
     <div class="nav-item" data-tab="setup">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       Setup
@@ -172,6 +184,72 @@
       </div>
       <div id="cache-section"></div>
       <div id="queue-section"></div>
+    </div>
+
+    <!-- Combos Tab -->
+    <div id="tab-combos" class="tab-panel">
+      <div class="page-header">
+        <h2>Custom Combos</h2>
+        <div class="header-actions">
+          <button class="btn btn-primary" id="create-combo-btn">Create Combo</button>
+        </div>
+      </div>
+      <div class="combo-info" style="margin-bottom:16px;padding:12px 16px;background:var(--bg-card);border-radius:8px;border:1px solid var(--border)">
+        <p style="margin:0;color:var(--text-muted)">Combos let you define custom model fallback chains. Create a named combo with providers and models, then use the combo name as your model in API requests.</p>
+      </div>
+      <div id="combo-create-form" style="display:none;margin-bottom:16px;padding:16px;background:var(--bg-card);border-radius:8px;border:1px solid var(--border)">
+        <h3 style="margin:0 0 12px">New Combo</h3>
+        <div class="form-group" style="margin-bottom:8px">
+          <label>Name</label>
+          <input type="text" id="combo-name" placeholder="my-custom-model" style="width:100%">
+        </div>
+        <div class="form-group" style="margin-bottom:8px">
+          <label>Description</label>
+          <input type="text" id="combo-desc" placeholder="Fast model with Groq fallback" style="width:100%">
+        </div>
+        <div id="combo-entries">
+          <label>Fallback Chain (ordered)</label>
+          <div class="combo-entry-row" style="display:flex;gap:8px;margin-bottom:4px">
+            <input type="text" placeholder="Provider (e.g. openrouter)" class="combo-provider" style="flex:1">
+            <input type="text" placeholder="Model ID" class="combo-model" style="flex:1">
+            <input type="number" placeholder="Weight" class="combo-weight" value="1" style="width:70px">
+          </div>
+        </div>
+        <button type="button" id="add-combo-entry-btn" style="margin:8px 0;padding:4px 12px;background:var(--bg-hover);border:1px solid var(--border);border-radius:4px;color:var(--text);cursor:pointer">+ Add Entry</button>
+        <div style="margin-top:8px">
+          <button class="btn btn-primary" id="save-combo-btn">Save Combo</button>
+          <button class="btn" id="cancel-combo-btn" style="margin-left:8px">Cancel</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Name</th><th>Description</th><th>Fallback Chain</th><th>Actions</th></tr></thead>
+        <tbody id="combos-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Quotas Tab -->
+    <div id="tab-quotas" class="tab-panel">
+      <div class="page-header">
+        <h2>Quota Tracker</h2>
+        <div class="header-actions">
+          <button class="refresh-btn" id="quotas-refresh-btn">Refresh</button>
+        </div>
+      </div>
+      <div class="quota-info" style="margin-bottom:16px;padding:12px 16px;background:var(--bg-card);border-radius:8px;border:1px solid var(--border)">
+        <p style="margin:0;color:var(--text-muted)">Real-time quota tracking per provider with countdown to reset. Limits are based on known free tier allowances.</p>
+      </div>
+      <div id="quotas-grid" class="provider-grid"></div>
+    </div>
+
+    <!-- OAuth Tab -->
+    <div id="tab-oauth" class="tab-panel">
+      <div class="page-header">
+        <h2>OAuth Connections</h2>
+      </div>
+      <div class="oauth-info" style="margin-bottom:16px;padding:12px 16px;background:var(--bg-card);border-radius:8px;border:1px solid var(--border)">
+        <p style="margin:0;color:var(--text-muted)">Connect subscription providers (Claude Pro, GitHub Copilot, Cursor) via OAuth. Tokens auto-refresh when expired.</p>
+      </div>
+      <div id="oauth-grid" class="provider-grid"></div>
     </div>
 
     <!-- Setup Tab -->
